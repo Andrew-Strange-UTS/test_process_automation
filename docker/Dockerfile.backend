@@ -1,0 +1,17 @@
+# Use Node.js 18 LTS image
+FROM node:18
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY server/package*.json ./
+RUN npm install
+
+# Copy rest of the backend app
+COPY server/ ./
+
+# Expose backend port
+EXPOSE 5000
+
+# Start the server
+CMD ["node", "app.js"]

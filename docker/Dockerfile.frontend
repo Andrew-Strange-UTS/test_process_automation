@@ -1,0 +1,30 @@
+# Base image for Next.js build
+FROM node:18 AS builder
+
+WORKDIR /app
+
+# Install deps
+COPY client/package*.json ./
+RUN npm install
+
+# Copy source
+COPY client/ ./
+
+# Build Next.js app
+RUN npm run build
+
+# -----------------------
+
+# Serve with a minimal production image
+FROM node:18-alpine
+
+# Set workdir
+WORKDIR /app
+
+# Copy output and node_modules from builder stage
+COPY --from=builder /app ./
+
+# Expose port used by Next.js
+EXPOSE 3000
+
+CMD ["npm", "start"]
