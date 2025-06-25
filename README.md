@@ -6,7 +6,9 @@ In the "tests" folder are all the operation.
 
 To build new operation create another folder in the tests folder
 
+docker-compose up --build
 
+http://localhost:7900/ for selenium visuals
 
 Folder structure 
 

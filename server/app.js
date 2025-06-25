@@ -1,13 +1,21 @@
 const express = require("express");
-const app = express();
 const cors = require("cors");
-const testRoutes = require("./routes/tests");
+const app = express();
+
+const gitRoutes = require("./routes/git");
 
 app.use(cors());
-app.use(express.json()); // for parsing JSON bodies
-app.use("/api/tests", testRoutes); // 👈 make all test routes available
+app.use(express.json());
 
+// Git-related routes
+app.use("/api/git", gitRoutes);
+
+// Run tests 
+app.use("/api/tests", require("./routes/tests"));
+
+// Start server on port 5000
 const PORT = 5000;
+
 app.listen(PORT, () => {
   console.log(`🚀 Backend running at http://localhost:${PORT}`);
 });

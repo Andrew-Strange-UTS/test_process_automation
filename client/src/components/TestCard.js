@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 
-export default function TestCard({ name }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+export default function TestCard({ name, runContent, metaContent }) {
+  const [isLogExpanded, setIsLogExpanded] = useState(false);
+  const [isMetaExpanded, setIsMetaExpanded] = useState(false);
+  const [isRunExpanded, setIsRunExpanded] = useState(false);
+
   const [status, setStatus] = useState("Never run");
   const [lastRun, setLastRun] = useState(null);
   const [log, setLog] = useState("No logs available yet...");
 
-  // ⬇️ Checkbox states
   const [visualBrowser, setVisualBrowser] = useState(false);
   const [needsOktaProd, setNeedsOktaProd] = useState(false);
   const [needsOktaTest, setNeedsOktaTest] = useState(false);
@@ -16,20 +18,18 @@ export default function TestCard({ name }) {
   const handleRun = async () => {
     setStatus("Running...");
     setLog("🔄 Starting test...");
-  
+
     try {
       const res = await fetch(`http://localhost:5000/api/tests/${name}/run`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          visualBrowser: visualBrowser,
-          needsOktaProd: needsOktaProd,
-          needsOktaTest: needsOktaTest
-        })
+          visualBrowser,
+          needsOktaProd,
+          needsOktaTest,
+        }),
       });
-  
+
       const data = await res.json();
       setStatus(data.status || "Completed ✅");
       setLastRun(new Date().toLocaleString());
@@ -52,7 +52,7 @@ export default function TestCard({ name }) {
         boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
         backgroundColor: "#fff",
         transition: "all 0.3s ease",
-        boxSizing: "border-box"
+        boxSizing: "border-box",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -61,12 +61,18 @@ export default function TestCard({ name }) {
           <button onClick={handleRun} style={{ marginBottom: "10px" }}>
             ▶ Run
           </button>
-          <div><strong>Status:</strong> {status}</div>
-          {lastRun && <div><strong>Last Run:</strong> {lastRun}</div>}
+          <div>
+            <strong>Status:</strong> {status}
+          </div>
+          {lastRun && (
+            <div>
+              <strong>Last Run:</strong> {lastRun}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ✅ Checkboxes section */}
+      {/* Checkboxes */}
       <div style={{ marginTop: "20px", display: "flex", gap: "30px" }}>
         <label>
           <input
@@ -76,7 +82,6 @@ export default function TestCard({ name }) {
           />{" "}
           Run with visual browser
         </label>
-
         <label>
           <input
             type="checkbox"
@@ -85,7 +90,6 @@ export default function TestCard({ name }) {
           />{" "}
           Needs OKTA prod login
         </label>
-
         <label>
           <input
             type="checkbox"
@@ -96,13 +100,12 @@ export default function TestCard({ name }) {
         </label>
       </div>
 
-      {/* Toggle Logs */}
+      {/* Toggle metadata.json */}
       <div style={{ marginTop: "20px" }}>
-        <button onClick={() => setIsExpanded(!isExpanded)}>
-          {isExpanded ? "Hide Log" : "Show Log"}
+        <button onClick={() => setIsMetaExpanded((prev) => !prev)}>
+          {isMetaExpanded ? "Hide metadata.json" : "Show metadata.json"}
         </button>
-
-        {isExpanded && (
+        {isMetaExpanded && (
           <pre
             style={{
               marginTop: "15px",
@@ -111,7 +114,51 @@ export default function TestCard({ name }) {
               borderRadius: "5px",
               overflowX: "auto",
               whiteSpace: "pre-wrap",
-              wordWrap: "break-word"
+              wordWrap: "break-word",
+            }}
+          >
+            {metaContent || "No metadata.json found."}
+          </pre>
+        )}
+      </div>
+
+      {/* Toggle run.js */}
+      <div style={{ marginTop: "20px" }}>
+        <button onClick={() => setIsRunExpanded((prev) => !prev)}>
+          {isRunExpanded ? "Hide run.js" : "Show run.js"}
+        </button>
+        {isRunExpanded && (
+          <pre
+            style={{
+              marginTop: "15px",
+              backgroundColor: "#f5f5f5",
+              padding: "15px",
+              borderRadius: "5px",
+              overflowX: "auto",
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
+            }}
+          >
+            {runContent || "No run.js found."}
+          </pre>
+        )}
+      </div>
+
+      {/* Logs */}
+      <div style={{ marginTop: "20px" }}>
+        <button onClick={() => setIsLogExpanded((prev) => !prev)}>
+          {isLogExpanded ? "Hide Log" : "Show Log"}
+        </button>
+        {isLogExpanded && (
+          <pre
+            style={{
+              marginTop: "15px",
+              backgroundColor: "#f5f5f5",
+              padding: "15px",
+              borderRadius: "5px",
+              overflowX: "auto",
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
             }}
           >
             {log}
