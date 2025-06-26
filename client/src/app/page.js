@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import TestCard from "@/components/TestCard";
 
@@ -12,32 +11,58 @@ export default function HomePage() {
   const handleClone = async () => {
     setLoading(true);
     try {
+      // Clone repo
       await fetch("http://localhost:5000/api/git/clone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repoUrl }),
       });
 
+      // Fetch available tests
       const res = await fetch("http://localhost:5000/api/git/list");
       const data = await res.json();
       setTests(data);
+
       const filesMap = {};
 
       for (const testName of data) {
-        const runRes = await fetch(`http://localhost:5000/api/git/${testName}/run.js`);
-        const metaRes = await fetch(`http://localhost:5000/api/git/${testName}/metadata.json`);
-        const run = await runRes.json();
-        const meta = await metaRes.json();
+        // Try to get run.py or run.js (in order)
+        const possibleFiles = ["run.js", "run.py"];
+        let runFile = null;
+        let runContent = null;
+
+        for (const file of possibleFiles) {
+          const res = await fetch(`http://localhost:5000/api/git/${testName}/${file}`);
+          if (res.ok) {
+            const result = await res.json();
+            runFile = file;
+            runContent = result.content;
+            break;
+          }
+        }
+
+        // Get metadata.json if available
+        let metaContent = null;
+        try {
+          const metaRes = await fetch(`http://localhost:5000/api/git/${testName}/metadata.json`);
+          if (metaRes.ok) {
+            const meta = await metaRes.json();
+            metaContent = meta.content;
+          }
+        } catch (err) {
+          console.warn(`No metadata for ${testName}`);
+        }
 
         filesMap[testName] = {
-          run: run.content,
-          metadata: meta.content,
+          run: runContent,
+          runFile, // js or py
+          metadata: metaContent,
         };
       }
 
       setFiles(filesMap);
     } catch (err) {
-      console.error("Error loading tests", err);
+      console.error("Error loading tests:", err);
       setTests([]);
     } finally {
       setLoading(false);
@@ -48,7 +73,7 @@ export default function HomePage() {
     <div style={{ padding: "20px", fontFamily: "sans-serif" }}>
       <h1 style={{ textAlign: "center", marginBottom: "30px" }}>UTS Automation</h1>
 
-      {/* Input row */}
+      {/* Repo input */}
       <div
         style={{
           display: "flex",
@@ -87,11 +112,10 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Show either test cards or placeholder */}
+      {/* Display tests */}
       {loading ? (
         <p style={{ textAlign: "center", fontStyle: "italic" }}>Loading tests...</p>
       ) : tests.length === 0 ? (
-        // ⬛ No Tests Loaded Card
         <div
           style={{
             width: "1400px",
@@ -108,12 +132,12 @@ export default function HomePage() {
           No Tests Loaded
         </div>
       ) : (
-        // ✅ Loaded test cards
         tests.map((testName) => (
           <TestCard
             key={testName}
             name={testName}
             runContent={files[testName]?.run}
+            runFile={files[testName]?.runFile}
             metaContent={files[testName]?.metadata}
           />
         ))

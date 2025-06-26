@@ -6,9 +6,9 @@ In the "tests" folder are all the operation.
 
 To build new operation create another folder in the tests folder
 
-docker-compose up --build
+Build the Docker container docker-compose up --build
 
-http://localhost:7900/ for selenium visuals
+http://localhost:7900/ for selenium visuals password is secret by default
 
 Folder structure 
 
@@ -16,23 +16,24 @@ Folder structure
 ├── 📁 client/               # React frontend
 │   ├── public/
 │   └── src/
+│       ├── aqpp/
+│       │   ├── layout.js
+│       │   └── page.js
 │       ├── components/
-│       ├── pages/
-│       └── services/       # API calls (e.g. test listing, submission)
+│       │   └── TestCard.js
+│       └── styles/
 ├── 📁 server/               # Backend (Node.js or Python FastAPI)
 │   ├── controllers/
+│   │   └── gitController.js
 │   ├── routes/
-│   ├── services/
+│   │   ├── git.js
+│   │   └── tests.js
 │   └── app.js              # Express or FastAPI entry
-├── 📁 tests/                # Your actual test scripts
-│   ├── 📁 login-test/
-│   │   ├── run.js          # The test script (Selenium or puppeteer etc.)
-│   │   └── metadata.json   # Input config, description etc.
-│   ├── 📁 upload-test/
-│   │   ├── run.js
-│   │   └── metadata.json
-│   └── ...
 ├── 📁 utils/               # (optional) shared utilities (logging, test parser etc.)
+├── 📁 tests        
+│   ├── 📁 test1name
+│   │   └── metadata.json
+│   │   └── run.js
 ├── 📁 docker/
 │   ├── Dockerfile.frontend
 │   ├── Dockerfile.backend
@@ -40,3 +41,24 @@ Folder structure
 ├── docker-compose.yml
 ├── README.md
 └── .env (for secrets and config)
+
+
+Test are loded from public GitHub repos
+
+Python and JavaScript tests are supported.
+
+Test GitHub repo folder structure
+
+📁 your-repo/
+├── 📁 tests        
+│   ├── 📁 test1name
+│   │   └── metadata.json
+│   │   └── run.js
+│   ├── 📁 test2name
+│   │   └── metadata.json
+│   │   └── run.py
+
+
+
+
+

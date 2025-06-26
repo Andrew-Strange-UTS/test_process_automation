@@ -1,16 +1,13 @@
 "use client";
-
 import { useState } from "react";
 
-export default function TestCard({ name, runContent, metaContent }) {
+export default function TestCard({ name, runContent, runFile = "run.js", metaContent }) {
   const [isLogExpanded, setIsLogExpanded] = useState(false);
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
   const [isRunExpanded, setIsRunExpanded] = useState(false);
-
   const [status, setStatus] = useState("Never run");
   const [lastRun, setLastRun] = useState(null);
   const [log, setLog] = useState("No logs available yet...");
-
   const [visualBrowser, setVisualBrowser] = useState(false);
   const [needsOktaProd, setNeedsOktaProd] = useState(false);
   const [needsOktaTest, setNeedsOktaTest] = useState(false);
@@ -18,7 +15,6 @@ export default function TestCard({ name, runContent, metaContent }) {
   const handleRun = async () => {
     setStatus("Running...");
     setLog("🔄 Starting test...");
-
     try {
       const res = await fetch(`http://localhost:5000/api/tests/${name}/run`, {
         method: "POST",
@@ -29,7 +25,6 @@ export default function TestCard({ name, runContent, metaContent }) {
           needsOktaTest,
         }),
       });
-
       const data = await res.json();
       setStatus(data.status || "Completed ✅");
       setLastRun(new Date().toLocaleString());
@@ -100,7 +95,7 @@ export default function TestCard({ name, runContent, metaContent }) {
         </label>
       </div>
 
-      {/* Toggle metadata.json */}
+      {/* Metadata viewer */}
       <div style={{ marginTop: "20px" }}>
         <button onClick={() => setIsMetaExpanded((prev) => !prev)}>
           {isMetaExpanded ? "Hide metadata.json" : "Show metadata.json"}
@@ -122,10 +117,10 @@ export default function TestCard({ name, runContent, metaContent }) {
         )}
       </div>
 
-      {/* Toggle run.js */}
+      {/* Script Viewer */}
       <div style={{ marginTop: "20px" }}>
         <button onClick={() => setIsRunExpanded((prev) => !prev)}>
-          {isRunExpanded ? "Hide run.js" : "Show run.js"}
+          {isRunExpanded ? `Hide ${runFile}` : `Show ${runFile}`}
         </button>
         {isRunExpanded && (
           <pre
@@ -139,12 +134,12 @@ export default function TestCard({ name, runContent, metaContent }) {
               wordWrap: "break-word",
             }}
           >
-            {runContent || "No run.js found."}
+            {runContent || `No ${runFile} found.`}
           </pre>
         )}
       </div>
 
-      {/* Logs */}
+      {/* Logs Viewer */}
       <div style={{ marginTop: "20px" }}>
         <button onClick={() => setIsLogExpanded((prev) => !prev)}>
           {isLogExpanded ? "Hide Log" : "Show Log"}
