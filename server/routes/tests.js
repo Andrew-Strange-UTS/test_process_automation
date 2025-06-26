@@ -1,13 +1,10 @@
-//server/routes/tests.js
-
+// server/routes/tests.js
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const { spawn } = require("child_process");
 
 const router = express.Router();
-
-// Test directory in cloned GitHub repo structure:
 const TESTS_ROOT = path.join(__dirname, "../../tmp/repo/tests");
 
 // ✅ GET /api/tests — list all test folders
@@ -15,16 +12,14 @@ router.get("/", (req, res) => {
   if (!fs.existsSync(TESTS_ROOT)) {
     return res.status(404).json({ error: "Tests folder not found." });
   }
-
   const folders = fs
     .readdirSync(TESTS_ROOT, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name);
-
   res.json(folders);
 });
 
-// ✅ POST /api/tests/:name/run — run a test (PY, JS, TS)
+// ✅ POST /api/tests/:name/run — run a test
 router.post("/:name/run", async (req, res) => {
   const testName = req.params.name;
   const testDir = path.join(TESTS_ROOT, testName);
@@ -33,50 +28,39 @@ router.post("/:name/run", async (req, res) => {
     return res.status(404).json({ error: "Test folder not found" });
   }
 
-  // Supported test file types
   const supportedFiles = [
     { filename: "run.js", cmd: ["node"] },
-    { filename: "run.py", cmd: ["python3"] },
-    //{ filename: "run.ts", cmd: ["ts-node"] }
+    { filename: "run.py", cmd: ["python3"] }
   ];
 
   let selected = null;
-  for (const candidate of supportedFiles) {
-    const fullPath = path.join(testDir, candidate.filename);
+  for (const { filename, cmd } of supportedFiles) {
+    const fullPath = path.join(testDir, filename);
     if (fs.existsSync(fullPath)) {
-      selected = { ...candidate, fullPath };
+      selected = { filename, cmd, fullPath };
       break;
     }
   }
 
   if (!selected) {
-    return res.status(404).json({ error: "No supported test file found (run.js / run.py / run.ts)" });
+    return res.status(404).json({
+      error: "No supported test file found (run.js or run.py)"
+    });
   }
 
-  // ✅ Inject fallback tsconfig.json if using TypeScript
-  // if (selected.filename === "run.ts") {
-  //   const tsConfigPath = path.join(testDir, "tsconfig.json");
-  //   if (!fs.existsSync(tsConfigPath)) {
-  //     const defaultConfig = {
-  //       compilerOptions: {
-  //         module: "commonjs",
-  //         esModuleInterop: true,
-  //         target: "es2020",
-  //         moduleResolution: "node",
-  //         types: ["node", "selenium-webdriver"],
-  //         skipLibCheck: true,
-  //       },
-  //     };
-  //     fs.writeFileSync(tsConfigPath, JSON.stringify(defaultConfig, null, 2));
-  //     console.log("📝 Wrote fallback tsconfig.json to test folder:", tsConfigPath);
-  //   }
-  // }
+  // ✅ Build environment variables
+  const manualParams = req.body.parameters || {};
+
+  const injectedParams = Object.fromEntries(
+    Object.entries(manualParams).map(([key, val]) => [key.toUpperCase(), String(val)])
+  );
 
   const env = {
     ...process.env,
     VISUAL_BROWSER: req.body.visualBrowser ? "true" : "false",
     OKTA_PROD: req.body.needsOktaProd ? "true" : "false",
-    OKTA_TEST: req.body.needsOktaTest ? "true" : "false"
+    OKTA_TEST: req.body.needsOktaTest ? "true" : "false",
+    ...injectedParams  // ✅ Inject parsed test param values
   };
 
   const child = spawn(
@@ -84,7 +68,7 @@ router.post("/:name/run", async (req, res) => {
     [...selected.cmd.slice(1), selected.fullPath],
     {
       cwd: testDir,
-      env,
+      env: env
     }
   );
 

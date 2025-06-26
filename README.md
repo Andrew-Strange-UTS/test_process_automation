@@ -20,6 +20,7 @@ Folder structure
 │       │   ├── layout.js
 │       │   └── page.js
 │       ├── components/
+│       │   └── RunSequence.js
 │       │   └── TestCard.js
 │       └── styles/
 ├── 📁 server/               # Backend (Node.js or Python FastAPI)

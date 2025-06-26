@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 
-// ✅ Accepts isInSequence and onToggleInSequence from parent
 export default function TestCard({
   name,
   runContent,
@@ -20,6 +19,20 @@ export default function TestCard({
   const [needsOktaProd, setNeedsOktaProd] = useState(false);
   const [needsOktaTest, setNeedsOktaTest] = useState(false);
 
+  const parsedMetadata = (() => {
+    if (!metaContent) return {};
+    try {
+      return JSON.parse(metaContent);
+    } catch (e) {
+      console.error("Invalid metadata.json:", e.message);
+      return {};
+    }
+  })();
+
+  const title = parsedMetadata.title || name;
+  const parameterMap = parsedMetadata["needed-parameters"] || {};
+  const [manualParams, setManualParams] = useState({});
+
   const handleRun = async () => {
     setStatus("Running...");
     setLog("🔄 Starting test...");
@@ -31,6 +44,7 @@ export default function TestCard({
           visualBrowser,
           needsOktaProd,
           needsOktaTest,
+          parameters: manualParams,
         }),
       });
       const data = await res.json();
@@ -69,7 +83,7 @@ export default function TestCard({
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <h2>{name}</h2>
+        <h2>{title}</h2>
         <div style={{ textAlign: "right" }}>
           <button onClick={handleRun} style={{ marginBottom: "10px" }}>
             ▶ Run
@@ -85,7 +99,7 @@ export default function TestCard({
         </div>
       </div>
 
-      {/* Options */}
+      {/* Options Checkboxes */}
       <div style={{ marginTop: "20px", display: "flex", gap: "30px", flexWrap: "wrap" }}>
         <label>
           <input
@@ -95,8 +109,6 @@ export default function TestCard({
           />{" "}
           Add to Run Sequence
         </label>
-
-        {/* ✅ Visual browser */}
         <label>
           <input
             type="checkbox"
@@ -105,8 +117,6 @@ export default function TestCard({
           />{" "}
           Run with visual browser
         </label>
-
-        {/* ✅ OKTA Prod (mutually exclusive) */}
         <label>
           <input
             type="checkbox"
@@ -115,14 +125,12 @@ export default function TestCard({
               const isChecked = e.target.checked;
               setNeedsOktaProd(isChecked);
               if (isChecked) {
-                setNeedsOktaTest(false); // ✅ enforce exclusivity
+                setNeedsOktaTest(false);
               }
             }}
           />{" "}
           Needs OKTA prod login
         </label>
-
-        {/* ✅ OKTA Test (mutually exclusive) */}
         <label>
           <input
             type="checkbox"
@@ -131,7 +139,7 @@ export default function TestCard({
               const isChecked = e.target.checked;
               setNeedsOktaTest(isChecked);
               if (isChecked) {
-                setNeedsOktaProd(false); // ✅ enforce exclusivity
+                setNeedsOktaProd(false);
               }
             }}
           />{" "}
@@ -139,7 +147,34 @@ export default function TestCard({
         </label>
       </div>
 
-      {/* Metadata Viewer */}
+      {/* Required Parameters */}
+      {Object.entries(parameterMap).length > 0 && (
+        <div style={{ marginTop: "20px" }}>
+          <h4 style={{ marginBottom: "10px" }}>Required Parameters:</h4>
+          {Object.entries(parameterMap).map(([label, key]) => (
+            <div key={key} style={{ marginBottom: "10px" }}>
+              <label style={{ display: "block", fontWeight: "bold" }}>{label}</label>
+              <input
+                type="text"
+                value={manualParams[key] || ""}
+                onChange={(e) =>
+                  setManualParams((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                placeholder={`Enter value for ${key}`}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  fontSize: "14px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/*  Metadata Viewer */}
       <div style={{ marginTop: "20px" }}>
         <button onClick={() => setIsMetaExpanded((prev) => !prev)}>
           {isMetaExpanded ? "Hide metadata.json" : "Show metadata.json"}
