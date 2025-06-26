@@ -1,7 +1,15 @@
 "use client";
 import { useState } from "react";
 
-export default function TestCard({ name, runContent, runFile = "run.js", metaContent }) {
+// ✅ Accepts isInSequence and onToggleInSequence from parent
+export default function TestCard({
+  name,
+  runContent,
+  runFile = "run.js",
+  metaContent,
+  isInSequence = false,
+  onToggleInSequence,
+}) {
   const [isLogExpanded, setIsLogExpanded] = useState(false);
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
   const [isRunExpanded, setIsRunExpanded] = useState(false);
@@ -36,6 +44,16 @@ export default function TestCard({ name, runContent, runFile = "run.js", metaCon
     }
   };
 
+  const handleAddToSequence = (e) => {
+    const checked = e.target.checked;
+    if (onToggleInSequence) {
+      onToggleInSequence(name, checked, {
+        needsOktaProd,
+        needsOktaTest,
+      });
+    }
+  };
+
   return (
     <div
       style={{
@@ -67,8 +85,18 @@ export default function TestCard({ name, runContent, runFile = "run.js", metaCon
         </div>
       </div>
 
-      {/* Checkboxes */}
-      <div style={{ marginTop: "20px", display: "flex", gap: "30px" }}>
+      {/* Options */}
+      <div style={{ marginTop: "20px", display: "flex", gap: "30px", flexWrap: "wrap" }}>
+        <label>
+          <input
+            type="checkbox"
+            checked={isInSequence}
+            onChange={handleAddToSequence}
+          />{" "}
+          Add to Run Sequence
+        </label>
+
+        {/* ✅ Visual browser */}
         <label>
           <input
             type="checkbox"
@@ -77,25 +105,41 @@ export default function TestCard({ name, runContent, runFile = "run.js", metaCon
           />{" "}
           Run with visual browser
         </label>
+
+        {/* ✅ OKTA Prod (mutually exclusive) */}
         <label>
           <input
             type="checkbox"
             checked={needsOktaProd}
-            onChange={(e) => setNeedsOktaProd(e.target.checked)}
+            onChange={(e) => {
+              const isChecked = e.target.checked;
+              setNeedsOktaProd(isChecked);
+              if (isChecked) {
+                setNeedsOktaTest(false); // ✅ enforce exclusivity
+              }
+            }}
           />{" "}
           Needs OKTA prod login
         </label>
+
+        {/* ✅ OKTA Test (mutually exclusive) */}
         <label>
           <input
             type="checkbox"
             checked={needsOktaTest}
-            onChange={(e) => setNeedsOktaTest(e.target.checked)}
+            onChange={(e) => {
+              const isChecked = e.target.checked;
+              setNeedsOktaTest(isChecked);
+              if (isChecked) {
+                setNeedsOktaProd(false); // ✅ enforce exclusivity
+              }
+            }}
           />{" "}
           Needs OKTA test login
         </label>
       </div>
 
-      {/* Metadata viewer */}
+      {/* Metadata Viewer */}
       <div style={{ marginTop: "20px" }}>
         <button onClick={() => setIsMetaExpanded((prev) => !prev)}>
           {isMetaExpanded ? "Hide metadata.json" : "Show metadata.json"}
