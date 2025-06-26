@@ -1,17 +1,30 @@
-# Use Node.js 18 LTS image
 FROM node:18
 
-WORKDIR /app
+# Install system and language utilities
+RUN apt-get update && apt-get install -y \
+  python3 \
+  python3-pip \
+  build-essential \
+  curl \
+  git \
+  && pip3 install selenium --break-system-packages
 
-# Copy package files and install dependencies
+# Install global node module
+RUN npm install -g selenium-webdriver
+
+# Let node resolve global modules
+ENV NODE_PATH=/usr/local/lib/node_modules
+
+# Setup backend app
+WORKDIR /app
 COPY server/package*.json ./
 RUN npm install
-
-# Copy rest of the backend app
 COPY server/ ./
 
-# Expose backend port
+# Prepare test folder for use inside container
+RUN mkdir -p /tmp/repo/tests
+
+# Expose backend API
 EXPOSE 5000
 
-# Start the server
 CMD ["node", "app.js"]
