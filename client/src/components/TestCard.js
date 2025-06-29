@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function TestCard({
   name,
@@ -8,16 +8,28 @@ export default function TestCard({
   metaContent,
   isInSequence = false,
   onToggleInSequence,
+  onOptionsChange = () => {},
+  results = {}
 }) {
   const [isLogExpanded, setIsLogExpanded] = useState(false);
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
   const [isRunExpanded, setIsRunExpanded] = useState(false);
+
   const [status, setStatus] = useState("Never run");
   const [lastRun, setLastRun] = useState(null);
   const [log, setLog] = useState("No logs available yet...");
+
   const [visualBrowser, setVisualBrowser] = useState(false);
   const [needsOktaProd, setNeedsOktaProd] = useState(false);
   const [needsOktaTest, setNeedsOktaTest] = useState(false);
+
+  const [manualParams, setManualParams] = useState({});
+
+  useEffect(() => {
+    if (results.status) setStatus(results.status);
+    if (results.log) setLog(results.log);
+    if (results.time) setLastRun(results.time);
+  }, [results]);
 
   const parsedMetadata = (() => {
     if (!metaContent) return {};
@@ -31,32 +43,6 @@ export default function TestCard({
 
   const title = parsedMetadata.title || name;
   const parameterMap = parsedMetadata["needed-parameters"] || {};
-  const [manualParams, setManualParams] = useState({});
-
-  const handleRun = async () => {
-    setStatus("Running...");
-    setLog("🔄 Starting test...");
-    try {
-      const res = await fetch(`http://localhost:5000/api/tests/${name}/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          visualBrowser,
-          needsOktaProd,
-          needsOktaTest,
-          parameters: manualParams,
-        }),
-      });
-      const data = await res.json();
-      setStatus(data.status || "Completed ✅");
-      setLastRun(new Date().toLocaleString());
-      setLog(data.log || "✅ Completed. No log returned.");
-    } catch (err) {
-      console.error(err);
-      setStatus("❌ Failed");
-      setLog(`❌ Error running test: ${err.message}`);
-    }
-  };
 
   const handleAddToSequence = (e) => {
     const checked = e.target.checked;
@@ -85,10 +71,7 @@ export default function TestCard({
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>{title}</h2>
         <div style={{ textAlign: "right" }}>
-          <button onClick={handleRun} style={{ marginBottom: "10px" }}>
-            ▶ Run
-          </button>
-          <div>
+          <div style={{ marginBottom: "10px" }}>
             <strong>Status:</strong> {status}
           </div>
           {lastRun && (
@@ -99,55 +82,68 @@ export default function TestCard({
         </div>
       </div>
 
-      {/* Options Checkboxes */}
+      {/* Selections */}
       <div style={{ marginTop: "20px", display: "flex", gap: "30px", flexWrap: "wrap" }}>
         <label>
           <input
             type="checkbox"
             checked={isInSequence}
             onChange={handleAddToSequence}
-          />{" "}
-          Add to Run Sequence
+          /> Add to Run Sequence
         </label>
         <label>
-          <input
-            type="checkbox"
-            checked={visualBrowser}
-            onChange={(e) => setVisualBrowser(e.target.checked)}
-          />{" "}
-          Run with visual browser
+        <input
+          type="checkbox"
+          checked={visualBrowser}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setVisualBrowser(checked);
+            onOptionsChange(name, {
+              visualBrowser: checked,
+              needsOktaProd,
+              needsOktaTest,
+              parameters: manualParams
+            });
+          }}
+        /> Enable visual browser
         </label>
         <label>
           <input
             type="checkbox"
             checked={needsOktaProd}
             onChange={(e) => {
-              const isChecked = e.target.checked;
-              setNeedsOktaProd(isChecked);
-              if (isChecked) {
-                setNeedsOktaTest(false);
-              }
+              const checked = e.target.checked;
+              setNeedsOktaProd(checked);
+              if (checked) setNeedsOktaTest(false);
+              onOptionsChange(name, {
+                visualBrowser,
+                needsOktaProd: checked,
+                needsOktaTest: false,
+                parameters: manualParams
+              });
             }}
-          />{" "}
-          Needs OKTA prod login
+          /> Needs OKTA prod login
         </label>
         <label>
           <input
             type="checkbox"
             checked={needsOktaTest}
             onChange={(e) => {
-              const isChecked = e.target.checked;
-              setNeedsOktaTest(isChecked);
-              if (isChecked) {
-                setNeedsOktaProd(false);
-              }
+              const checked = e.target.checked;
+              setNeedsOktaProd(checked);
+              if (checked) setNeedsOktaTest(false);
+              onOptionsChange(name, {
+                visualBrowser,
+                needsOktaProd: checked,
+                needsOktaTest: false,
+                parameters: manualParams
+              });
             }}
-          />{" "}
-          Needs OKTA test login
+          /> Needs OKTA test login
         </label>
       </div>
 
-      {/* Required Parameters */}
+      {/* Parameters */}
       {Object.entries(parameterMap).length > 0 && (
         <div style={{ marginTop: "20px" }}>
           <h4 style={{ marginBottom: "10px" }}>Required Parameters:</h4>
@@ -157,9 +153,19 @@ export default function TestCard({
               <input
                 type="text"
                 value={manualParams[key] || ""}
-                onChange={(e) =>
-                  setManualParams((prev) => ({ ...prev, [key]: e.target.value }))
-                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setManualParams((prev) => {
+                    const updated = { ...prev, [key]: value };
+                    onOptionsChange(name, {
+                      visualBrowser,
+                      needsOktaProd,
+                      needsOktaTest,
+                      parameters: updated
+                    });
+                    return updated;
+                  });
+                }}
                 placeholder={`Enter value for ${key}`}
                 style={{
                   width: "100%",
@@ -174,9 +180,23 @@ export default function TestCard({
         </div>
       )}
 
-      {/*  Metadata Viewer */}
+      {/* Metadata Viewer */}
       <div style={{ marginTop: "20px" }}>
-        <button onClick={() => setIsMetaExpanded((prev) => !prev)}>
+        <button 
+          onClick={() => setIsMetaExpanded((prev) => !prev)}
+          style={{
+            marginTop: "20px",
+            padding: "10px 15px",
+            background: "#0070f3",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            width: "200px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            cursor: "pointer",
+          }}
+        >
           {isMetaExpanded ? "Hide metadata.json" : "Show metadata.json"}
         </button>
         {isMetaExpanded && (
@@ -198,7 +218,21 @@ export default function TestCard({
 
       {/* Script Viewer */}
       <div style={{ marginTop: "20px" }}>
-        <button onClick={() => setIsRunExpanded((prev) => !prev)}>
+        <button 
+          onClick={() => setIsRunExpanded((prev) => !prev)}
+          style={{
+            marginTop: "20px",
+            padding: "10px 15px",
+            background: "#0070f3",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            width: "200px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            cursor: "pointer",
+          }}         
+        >
           {isRunExpanded ? `Hide ${runFile}` : `Show ${runFile}`}
         </button>
         {isRunExpanded && (
@@ -218,9 +252,23 @@ export default function TestCard({
         )}
       </div>
 
-      {/* Logs Viewer */}
+      {/* Logs */}
       <div style={{ marginTop: "20px" }}>
-        <button onClick={() => setIsLogExpanded((prev) => !prev)}>
+        <button 
+          onClick={() => setIsLogExpanded((prev) => !prev)}
+          style={{
+            marginTop: "20px",
+            padding: "10px 15px",
+            background: "#0070f3",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            width: "200px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            cursor: "pointer",
+          }}  
+        >
           {isLogExpanded ? "Hide Log" : "Show Log"}
         </button>
         {isLogExpanded && (

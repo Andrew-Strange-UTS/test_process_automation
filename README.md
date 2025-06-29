@@ -16,7 +16,7 @@ Folder structure
 ├── 📁 client/               # React frontend
 │   ├── public/
 │   └── src/
-│       ├── aqpp/
+│       ├── app/
 │       │   ├── layout.js
 │       │   └── page.js
 │       ├── components/
@@ -27,13 +27,19 @@ Folder structure
 │   ├── controllers/
 │   │   └── gitController.js
 │   ├── routes/
+│   │   ├── stream.js
 │   │   ├── git.js
 │   │   └── tests.js
 │   └── app.js              # Express or FastAPI entry
 ├── 📁 utils/               # (optional) shared utilities (logging, test parser etc.)
 ├── 📁 tests        
-│   ├── 📁 test1name
-│   │   └── metadata.json
+│   ├── 📁 OKTA-Prod-Login
+│   │   └── run.js
+│   ├── 📁 OKTA-Prod-Login-Finish
+│   │   └── run.js
+│   ├── 📁 OKTA-Test-Login
+│   │   └── run.js
+│   ├── 📁 OKTA-Test-Login-Finish
 │   │   └── run.js
 ├── 📁 docker/
 │   ├── Dockerfile.frontend
