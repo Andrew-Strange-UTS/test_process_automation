@@ -1,3 +1,5 @@
+# Dockerfile.backend
+
 FROM node:18
 
 # Install system and language utilities
@@ -17,14 +19,18 @@ ENV NODE_PATH=/usr/local/lib/node_modules
 
 # Setup backend app
 WORKDIR /app
-COPY server/package*.json ./
-RUN npm install
+
+# ✅ Copy all server code BEFORE install
 COPY server/ ./
 
-# Prepare test folder for use inside container
+# ✅ Install all dependencies (with updated package.json!)
+RUN npm install
+
+# Prepare test folder for cloned repos
 RUN mkdir -p /tmp/repo/tests
 
 # Expose backend API
 EXPOSE 5000
 
-CMD ["node", "app.js"]
+# Start backend
+CMD ["node", "index.js"]

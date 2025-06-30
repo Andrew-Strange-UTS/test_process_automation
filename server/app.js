@@ -1,21 +1,31 @@
+// server/app.js
+
 const express = require("express");
+const http = require("http");
 const cors = require("cors");
+const { setupWebSocket } = require("./ws");
+
+// Create Express app
 const app = express();
 
-const gitRoutes = require("./routes/git");
-
-app.use(cors());
+// Middleware
+app.use(cors({ origin: "http://localhost:3000" }));
 app.use(express.json());
 
-// Git-related routes
+// Routes
+const gitRoutes = require("./routes/git");
+const streamRoutes = require("./routes/stream");
+const testsRoutes = require("./routes/tests");
+
 app.use("/api/git", gitRoutes);
+app.use("/api/stream", streamRoutes);
+app.use("/api/tests", testsRoutes);
 
-// Run tests 
-app.use("/api/tests", require("./routes/tests"));
+// Create HTTP server
+const server = http.createServer(app);
 
-// Start server on port 5000
-const PORT = 5000;
+// 🔌 Attach WebSocket server
+setupWebSocket(server);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Backend running at http://localhost:${PORT}`);
-});
+// Export the ready server to be run by index.js
+module.exports = server;

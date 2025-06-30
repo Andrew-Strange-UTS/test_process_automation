@@ -1,3 +1,5 @@
+# Dockerfile.frontend
+
 # Base image for Next.js build
 FROM node:18 AS builder
 

@@ -1,62 +1,61 @@
+// RunSequence.js
 "use client";
 import React from "react";
 
-export default function RunSequence({ sequence }) {
-  // ✅ Group tests by OKTA type
+export default function RunSequence({ sequence, onTestResult }) {
+  // 🧱 Build full test sequence (wrap with OKTA login if needed)
   const buildWrappedSequence = () => {
-    const prodOktaTests = [];
-    const testOktaTests = [];
-    const noOktaTests = [];
-
-    for (const test of sequence) {
-      if (test?.needsOktaProd) {
-        prodOktaTests.push(test);
-      } else if (test?.needsOktaTest) {
-        testOktaTests.push(test);
-      } else {
-        noOktaTests.push(test);
-      }
-    }
-
     const wrapped = [];
+    const prodOktaTests = sequence.filter((t) => t?.needsOktaProd);
+    const testOktaTests = sequence.filter((t) => t?.needsOktaTest);
+    const noOktaTests = sequence.filter(
+      (t) => !t?.needsOktaProd && !t?.needsOktaTest
+    );
 
     if (prodOktaTests.length > 0) {
-      wrapped.push({ name: "OKTA-Prod-Login" });
+      wrapped.push({ name: "OKTA-Prod-Login", visualBrowser: true });
       wrapped.push(...prodOktaTests);
-      wrapped.push({ name: "OKTA-Prod-Login-finish" });
+      wrapped.push({ name: "OKTA-Prod-Login-Finish", visualBrowser: true });
     }
 
     if (testOktaTests.length > 0) {
-      wrapped.push({ name: "OKTA-Test-Login" });
+      wrapped.push({ name: "OKTA-Test-Login", visualBrowser: true });
       wrapped.push(...testOktaTests);
-      wrapped.push({ name: "OKTA-Test-Login-finish" });
+      wrapped.push({ name: "OKTA-Test-Login-Finish", visualBrowser: true });
     }
 
     wrapped.push(...noOktaTests);
-
     return wrapped;
   };
 
   const wrappedSequence = buildWrappedSequence();
 
   const handleRun = async () => {
-    for (const t of wrappedSequence) {
-      try {
-        const res = await fetch(`http://localhost:5000/api/tests/${t.name}/run`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            visualBrowser: true,
-            needsOktaProd: t.needsOktaProd || false,
-            needsOktaTest: t.needsOktaTest || false,
-          }),
-        });
+    for (const test of wrappedSequence) {
+      const {
+        name,
+        visualBrowser = false,
+        needsOktaProd = false,
+        needsOktaTest = false,
+        parameters = {},
+      } = test;
 
-        const data = await res.json();
-        console.log(`${t.name} => ${data.status}`);
-      } catch (err) {
-        console.error(`❌ ${t.name} failed`, err);
-        break;
+      console.log("▶ Starting test over WebSocket:", name);
+
+      if (onTestResult) {
+        // Start test via WebSocket runner (from page.js)
+        await new Promise((resolve) => {
+          onTestResult(name, {
+            visualBrowser,
+            needsOktaProd,
+            needsOktaTest,
+            parameters,
+            onDone: resolve, // optional if page.js supports callback
+          });
+
+          // Delay between tests to avoid race conditions (can be removed if callbacks used)
+          setTimeout(resolve, 500); // fallback in case onDone isn't handled
+        });
       }
     }
   };
@@ -79,6 +78,9 @@ export default function RunSequence({ sequence }) {
         {wrappedSequence.map((test, i) => (
           <li key={i} style={{ marginBottom: "8px" }}>
             {test.name}
+            {test.visualBrowser && (
+              <span style={{ color: "#0070f3", marginLeft: "6px" }}>👁</span>
+            )}
           </li>
         ))}
       </ol>

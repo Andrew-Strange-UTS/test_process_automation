@@ -16,24 +16,24 @@ Folder structure
 ├── 📁 client/               # React frontend
 │   ├── public/
 │   └── src/
-│       ├── aqpp/
+│       ├── app/
 │       │   ├── layout.js
 │       │   └── page.js
 │       ├── components/
+│       │   └── RunSequence.js
 │       │   └── TestCard.js
 │       └── styles/
 ├── 📁 server/               # Backend (Node.js or Python FastAPI)
 │   ├── controllers/
 │   │   └── gitController.js
 │   ├── routes/
+│   │   ├── stream.js
 │   │   ├── git.js
 │   │   └── tests.js
 │   └── app.js              # Express or FastAPI entry
+│   └── index.js
+│   └── ws.js      
 ├── 📁 utils/               # (optional) shared utilities (logging, test parser etc.)
-├── 📁 tests        
-│   ├── 📁 test1name
-│   │   └── metadata.json
-│   │   └── run.js
 ├── 📁 docker/
 │   ├── Dockerfile.frontend
 │   ├── Dockerfile.backend
@@ -50,14 +50,21 @@ Python and JavaScript tests are supported.
 Test GitHub repo folder structure
 
 📁 your-repo/
-├── 📁 tests        
+├── 📁 tests      
 │   ├── 📁 test1name
 │   │   └── metadata.json
 │   │   └── run.js
 │   ├── 📁 test2name
 │   │   └── metadata.json
 │   │   └── run.py
-
+│   ├── 📁 OKTA-Prod-Login
+│   │   └── run.js
+│   ├── 📁 OKTA-Prod-Login-Finish
+│   │   └── run.js
+│   ├── 📁 OKTA-Test-Login
+│   │   └── run.js
+│   ├── 📁 OKTA-Test-Login-Finish
+│   │   └── run.js  
 
 
 
