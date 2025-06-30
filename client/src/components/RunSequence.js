@@ -1,39 +1,30 @@
+// RunSequence.js
 "use client";
 import React from "react";
 
 export default function RunSequence({ sequence, onTestResult }) {
-  // 🧱 Build wrapped sequence by OKTA flags
+  // 🧱 Build full test sequence (wrap with OKTA login if needed)
   const buildWrappedSequence = () => {
-    const prodOktaTests = [];
-    const testOktaTests = [];
-    const noOktaTests = [];
-
-    for (const test of sequence) {
-      if (test?.needsOktaProd) {
-        prodOktaTests.push(test);
-      } else if (test?.needsOktaTest) {
-        testOktaTests.push(test);
-      } else {
-        noOktaTests.push(test);
-      }
-    }
-
     const wrapped = [];
+    const prodOktaTests = sequence.filter((t) => t?.needsOktaProd);
+    const testOktaTests = sequence.filter((t) => t?.needsOktaTest);
+    const noOktaTests = sequence.filter(
+      (t) => !t?.needsOktaProd && !t?.needsOktaTest
+    );
 
     if (prodOktaTests.length > 0) {
       wrapped.push({ name: "OKTA-Prod-Login", visualBrowser: true });
       wrapped.push(...prodOktaTests);
-      wrapped.push({ name: "OKTA-Prod-Login-finish", visualBrowser: true });
+      wrapped.push({ name: "OKTA-Prod-Login-Finish", visualBrowser: true });
     }
 
     if (testOktaTests.length > 0) {
       wrapped.push({ name: "OKTA-Test-Login", visualBrowser: true });
       wrapped.push(...testOktaTests);
-      wrapped.push({ name: "OKTA-Test-Login-finish", visualBrowser: true });
+      wrapped.push({ name: "OKTA-Test-Login-Finish", visualBrowser: true });
     }
 
     wrapped.push(...noOktaTests);
-
     return wrapped;
   };
 
@@ -41,51 +32,30 @@ export default function RunSequence({ sequence, onTestResult }) {
 
   const handleRun = async () => {
     for (const test of wrappedSequence) {
-        console.log("▶ Sending test to backend:", test.name, {
-            visualBrowser: test.visualBrowser,
-            parameters: test.parameters,
-        });
-        
-        const {
-            name,
-            visualBrowser = false,
-            needsOktaProd = false,
-            needsOktaTest = false,
-            parameters = {},
-        } = test;
+      const {
+        name,
+        visualBrowser = false,
+        needsOktaProd = false,
+        needsOktaTest = false,
+        parameters = {},
+      } = test;
 
-      try {
-        const res = await fetch(`http://localhost:5000/api/tests/${name}/run`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+      console.log("▶ Starting test over WebSocket:", name);
+
+      if (onTestResult) {
+        // Start test via WebSocket runner (from page.js)
+        await new Promise((resolve) => {
+          onTestResult(name, {
             visualBrowser,
             needsOktaProd,
             needsOktaTest,
             parameters,
-          }),
+            onDone: resolve, // optional if page.js supports callback
+          });
+
+          // Delay between tests to avoid race conditions (can be removed if callbacks used)
+          setTimeout(resolve, 500); // fallback in case onDone isn't handled
         });
-
-        const data = await res.json();
-        console.log(`✅ ${name} => ${data.status}`);
-
-        if (onTestResult) {
-          onTestResult(name, {
-            status: data.status || "✅ Passed",
-            log: data.log || "",
-            time: new Date().toLocaleString(),
-          });
-        }
-      } catch (error) {
-        console.error(`❌ ${test.name} failed:`, error);
-        if (onTestResult) {
-          onTestResult(name, {
-            status: "❌ Failed",
-            log: `❌ Error: ${error.message}`,
-            time: new Date().toLocaleString(),
-          });
-        }
-        break; // stop sequence on failure
       }
     }
   };

@@ -1,3 +1,5 @@
+# Dockerfile.selenium
+
 selenium:
     image: selenium/standalone-chrome:latest
     ports:

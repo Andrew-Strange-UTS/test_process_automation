@@ -65,6 +65,8 @@ router.post("/:name/run", async (req, res) => {
 
   let output = "";
 
+  child.stdout.setEncoding("utf8"); // Optional, ensures data is a string
+
   // 🔄 Collect + stream logs
   child.stdout.on("data", (data) => {
     const chunk = data.toString();

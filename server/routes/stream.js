@@ -3,11 +3,11 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const { spawn } = require("child_process");
+
 const router = express.Router();
 
 router.get("/:name", async (req, res) => {
   const testName = req.params.name;
-
   const repoTestDir = path.join(__dirname, "../../tmp/repo/tests", testName);
   const builtInTestDir = path.join(__dirname, "../tests", testName);
 
@@ -28,25 +28,27 @@ router.get("/:name", async (req, res) => {
   }
 
   console.log(`✅ Using test directory: ${testDir}`);
+  console.log(`🚀 Running: node run.js`);
 
-  // 🟢 Set SSE response headers
+  // Setup SSE headers
   res.set({
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
     Connection: "keep-alive",
   });
-
   res.flushHeaders();
   res.write("event: message\ndata: 🚀 Stream opened\n\n");
 
-  // ✅ Build environment
+  // Set environment
   const env = {
     ...process.env,
+    NODE_OPTIONS: "--trace-warnings",
+    FORCE_COLOR: "1",
     VISUAL_BROWSER: "true",
     CHROME_USER_PROFILE: "/tmp/okta-session",
   };
 
-  // 🟢 Spawn Node.js test runner
+  // Run test
   const child = spawn("node", ["run.js"], {
     cwd: testDir,
     env,
@@ -56,14 +58,23 @@ router.get("/:name", async (req, res) => {
   const sendLine = (line) => {
     const sanitized = line.toString().replace(/\n/g, "⏎");
     res.write(`data: ${sanitized}\n\n`);
+    res.flush?.();
   };
 
-  child.stdout.on("data", (data) => {
-    sendLine(data);
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    console.log("⏺️ STDOUT:", chunk);
+    chunk.split(/\r?\n/).forEach((line) => {
+      if (line.trim()) sendLine(line);
+    });
   });
 
+  child.stderr.setEncoding("utf8");
   child.stderr.on("data", (data) => {
-    sendLine("[stderr] " + data);
+    console.log("⏺️ STDERR:", data);
+    data.split(/\r?\n/).forEach((line) => {
+      if (line.trim()) sendLine("[stderr] " + line);
+    });
   });
 
   child.on("close", (code) => {
@@ -72,10 +83,9 @@ router.get("/:name", async (req, res) => {
     res.end();
   });
 
-  // Client disconnects
   req.on("close", () => {
     console.warn(`🔌 Client closed stream for ${testName}`);
-    child.kill(); // Clean up test process if client aborts
+    child.kill();
   });
 });
 
