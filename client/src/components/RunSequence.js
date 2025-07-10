@@ -1,9 +1,15 @@
-// RunSequence.js
 "use client";
-import React from "react";
+import React, { useState } from "react";
 
+/**
+ * RunSequence component: displays the test sequence and runs them in order
+ * - Skips all tests between OKTA login and finish if login fails, but always runs the finish step
+ * - Disables button while running; button text is "Running..." while active
+ */
 export default function RunSequence({ sequence, onTestResult }) {
-  // 🧱 Build full test sequence (wrap with OKTA login if needed)
+  const [isRunning, setIsRunning] = useState(false);
+
+  // Construct full sequence with OKTA bookends if needed
   const buildWrappedSequence = () => {
     const wrapped = [];
     const prodOktaTests = sequence.filter((t) => t?.needsOktaProd);
@@ -30,7 +36,11 @@ export default function RunSequence({ sequence, onTestResult }) {
 
   const wrappedSequence = buildWrappedSequence();
 
+  // Main sequence runner, using onDone to ensure correct waiting
   const handleRun = async () => {
+    setIsRunning(true);
+    let skipUntilOktaFinish = false;
+
     for (const test of wrappedSequence) {
       const {
         name,
@@ -40,24 +50,55 @@ export default function RunSequence({ sequence, onTestResult }) {
         parameters = {},
       } = test;
 
-      console.log("▶ Starting test over WebSocket:", name);
+      // Skip tests between OKTA login and finish if login failed, but never skip the finish step itself
+      if (
+        skipUntilOktaFinish &&
+        !(name === "OKTA-Test-Login-Finish" || name === "OKTA-Prod-Login-Finish")
+      ) {
+        console.log(`⏭️ Skipping ${name} due to previous OKTA login failure`);
+        continue;
+      }
 
+      let result = null;
+
+      // Use a Promise and wait for the callback
       if (onTestResult) {
-        // Start test via WebSocket runner (from page.js)
         await new Promise((resolve) => {
-          onTestResult(name, {
-            visualBrowser,
-            needsOktaProd,
-            needsOktaTest,
-            parameters,
-            onDone: resolve, // optional if page.js supports callback
-          });
-
-          // Delay between tests to avoid race conditions (can be removed if callbacks used)
-          setTimeout(resolve, 500); // fallback in case onDone isn't handled
+          onTestResult(
+            name,
+            {
+              visualBrowser,
+              needsOktaProd,
+              needsOktaTest,
+              parameters,
+            },
+            (res) => {
+              result = res || {};
+              resolve();
+            }
+          );
+          // Fallback: just in case onDone is forgotten (should not be needed)
+          setTimeout(resolve, 5 * 60 * 1000); // 5 minute fallback
         });
       }
+
+      // If login failed, skip until finish
+      if (
+        (name === "OKTA-Test-Login" || name === "OKTA-Prod-Login") &&
+        (!result || !result.status || !String(result.status).includes("✅"))
+      ) {
+        skipUntilOktaFinish = true;
+        console.warn(
+          `[RunSequence] ${name} failed. Skipping tests until next OKTA-Finish.`
+        );
+      }
+
+      // Reset at finish steps
+      if (name === "OKTA-Test-Login-Finish" || name === "OKTA-Prod-Login-Finish") {
+        skipUntilOktaFinish = false;
+      }
     }
+    setIsRunning(false);
   };
 
   return (
@@ -87,20 +128,22 @@ export default function RunSequence({ sequence, onTestResult }) {
       {wrappedSequence.length > 0 && (
         <button
           onClick={handleRun}
+          disabled={isRunning}
           style={{
             marginTop: "20px",
             padding: "10px 15px",
-            background: "#0070f3",
+            background: isRunning ? "#aaa" : "#0070f3",
             color: "white",
             border: "none",
             borderRadius: "5px",
             width: "100%",
             fontSize: "16px",
             fontWeight: "bold",
-            cursor: "pointer",
+            cursor: isRunning ? "not-allowed" : "pointer",
+            opacity: isRunning ? 0.75 : 1,
           }}
         >
-          ▶ Run Sequence
+          {isRunning ? "Running..." : "▶ Run Sequence"}
         </button>
       )}
     </div>

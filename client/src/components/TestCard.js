@@ -132,8 +132,8 @@ export default function TestCard({
             checked={needsOktaTest}
             onChange={(e) => {
               const checked = e.target.checked;
-              setNeedsOktaProd(checked);
-              if (checked) setNeedsOktaTest(false);
+              setNeedsOktaTest(checked);
+              if (checked) setNeedsOktaProd(false);
               onOptionsChange(name, {
                 visualBrowser,
                 needsOktaProd: checked,
