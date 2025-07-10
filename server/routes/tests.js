@@ -52,7 +52,6 @@ router.post("/:name/run", async (req, res) => {
     VISUAL_BROWSER: req.body.visualBrowser ? "true" : "false",
     OKTA_PROD: req.body.needsOktaProd ? "true" : "false",
     OKTA_TEST: req.body.needsOktaTest ? "true" : "false",
-    CHROME_USER_PROFILE: "/tmp/okta-session", // 🔐 Shared profile directory
     ...injectedParams
   };
 

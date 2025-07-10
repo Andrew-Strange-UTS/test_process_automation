@@ -45,7 +45,6 @@ router.get("/:name", async (req, res) => {
     NODE_OPTIONS: "--trace-warnings",
     FORCE_COLOR: "1",
     VISUAL_BROWSER: "true",
-    CHROME_USER_PROFILE: "/tmp/okta-session",
   };
 
   // Run test

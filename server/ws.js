@@ -28,7 +28,6 @@ function setupWebSocket(server) {
       const env = {
         ...process.env,
         VISUAL_BROWSER: "true",
-        CHROME_USER_PROFILE: "/tmp/okta-session",
       };
 
       ws.send(JSON.stringify({ type: "log", message: `🚀 Starting ${test} [${runner}]` }));

@@ -1,10 +1,23 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import TestCard from "@/components/TestCard";
 import RunSequence from "@/components/RunSequence";
 
 export default function HomePage() {
-  const [repoUrl, setRepoUrl] = useState("");
+  // Persist repoUrl to localStorage
+  const [repoUrl, setRepoUrl] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("repoUrl") || "";
+    }
+    return "";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("repoUrl", repoUrl);
+    }
+  }, [repoUrl]);
+
   const [tests, setTests] = useState([]);
   const [files, setFiles] = useState({});
   const [loading, setLoading] = useState(false);
@@ -14,8 +27,8 @@ export default function HomePage() {
   const [serverSideLogs, setServerSideLogs] = useState({});
   const [isServerLogExpanded, setIsServerLogExpanded] = useState(false);
 
-  // ✅ Live WebSocket test runner
-  const handleRunTestViaWebSocket = (testName, options = {}) => {
+  // WebSocket test runner that supports onDone for async/sequence
+  const handleRunTestViaWebSocket = (testName, options = {}, onDone) => {
     const startTime = new Date().toLocaleString();
 
     setServerSideLogs((prev) => ({
@@ -30,7 +43,7 @@ export default function HomePage() {
       socket.send(JSON.stringify({
         type: "RUN",
         test: testName,
-        ...options, // future use: parameters, visualBrowser, etc.
+        ...options,
       }));
     };
 
@@ -59,6 +72,10 @@ export default function HomePage() {
             },
           }));
 
+          if (typeof onDone === "function") {
+            onDone({ status: message.status, log: message.log, time: startTime });
+          }
+
           socket.close();
         }
       } catch (err) {
@@ -72,6 +89,9 @@ export default function HomePage() {
         ...prev,
         [testName]: (prev[testName] || "") + `\n❌ WebSocket error\n`,
       }));
+      if (typeof onDone === "function") {
+        onDone({ status: "❌ Failed", log: "WebSocket error", time: startTime });
+      }
       socket.close();
     };
 
@@ -303,8 +323,8 @@ export default function HomePage() {
           ...t,
           ...(testOptions[t.name] || {}),
         }))}
-        onTestResult={(name) =>
-          handleRunTestViaWebSocket(name, testOptions[name])
+        onTestResult={(name, options, onDone) =>
+          handleRunTestViaWebSocket(name, testOptions[name], onDone)
         }
       />
     </div>
