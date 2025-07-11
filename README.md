@@ -38,6 +38,7 @@ Folder structure
 │   ├── Dockerfile.frontend
 │   ├── Dockerfile.backend
 │   ├── Dockerfile.selenium
+│   ├── init.sh
 ├── docker-compose.yml
 ├── README.md
 └── .env (for secrets and config)

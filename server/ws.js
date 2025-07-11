@@ -1,3 +1,4 @@
+// server/ws.js
 const { spawn } = require("child_process");
 const { WebSocketServer } = require("ws");
 const path = require("path");

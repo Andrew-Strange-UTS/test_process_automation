@@ -1,13 +1,9 @@
 "use client";
-import React, { useState } from "react";
-
-/**
- * RunSequence component: displays the test sequence and runs them in order
- * - Skips all tests between OKTA login and finish if login fails, but always runs the finish step
- * - Disables button while running; button text is "Running..." while active
- */
+import React, { useState, useRef, useEffect } from "react";
 export default function RunSequence({ sequence, onTestResult }) {
   const [isRunning, setIsRunning] = useState(false);
+  const [sequenceOutput, setSequenceOutput] = useState("");  // ADDED
+  const logRef = useRef(null);
 
   // Construct full sequence with OKTA bookends if needed
   const buildWrappedSequence = () => {
@@ -17,89 +13,67 @@ export default function RunSequence({ sequence, onTestResult }) {
     const noOktaTests = sequence.filter(
       (t) => !t?.needsOktaProd && !t?.needsOktaTest
     );
-
     if (prodOktaTests.length > 0) {
       wrapped.push({ name: "OKTA-Prod-Login", visualBrowser: true });
       wrapped.push(...prodOktaTests);
       wrapped.push({ name: "OKTA-Prod-Login-Finish", visualBrowser: true });
     }
-
     if (testOktaTests.length > 0) {
       wrapped.push({ name: "OKTA-Test-Login", visualBrowser: true });
       wrapped.push(...testOktaTests);
       wrapped.push({ name: "OKTA-Test-Login-Finish", visualBrowser: true });
     }
-
     wrapped.push(...noOktaTests);
     return wrapped;
   };
-
   const wrappedSequence = buildWrappedSequence();
 
-  // Main sequence runner, using onDone to ensure correct waiting
+  // Main sequence runner as before, use wrappedSequence not "sequence"
   const handleRun = async () => {
     setIsRunning(true);
-    let skipUntilOktaFinish = false;
-
-    for (const test of wrappedSequence) {
-      const {
-        name,
-        visualBrowser = false,
-        needsOktaProd = false,
-        needsOktaTest = false,
-        parameters = {},
-      } = test;
-
-      // Skip tests between OKTA login and finish if login failed, but never skip the finish step itself
-      if (
-        skipUntilOktaFinish &&
-        !(name === "OKTA-Test-Login-Finish" || name === "OKTA-Prod-Login-Finish")
-      ) {
-        console.log(`⏭️ Skipping ${name} due to previous OKTA login failure`);
-        continue;
-      }
-
-      let result = null;
-
-      // Use a Promise and wait for the callback
-      if (onTestResult) {
-        await new Promise((resolve) => {
-          onTestResult(
-            name,
-            {
-              visualBrowser,
-              needsOktaProd,
-              needsOktaTest,
-              parameters,
-            },
-            (res) => {
-              result = res || {};
-              resolve();
-            }
-          );
-          // Fallback: just in case onDone is forgotten (should not be needed)
-          setTimeout(resolve, 5 * 60 * 1000); // 5 minute fallback
-        });
-      }
-
-      // If login failed, skip until finish
-      if (
-        (name === "OKTA-Test-Login" || name === "OKTA-Prod-Login") &&
-        (!result || !result.status || !String(result.status).includes("✅"))
-      ) {
-        skipUntilOktaFinish = true;
-        console.warn(
-          `[RunSequence] ${name} failed. Skipping tests until next OKTA-Finish.`
-        );
-      }
-
-      // Reset at finish steps
-      if (name === "OKTA-Test-Login-Finish" || name === "OKTA-Prod-Login-Finish") {
-        skipUntilOktaFinish = false;
-      }
+    setSequenceOutput("");
+    // Use wrapped sequence (to include okta logic etc), map to names for backend
+    const simpleSeq = wrappedSequence.map(step => ({
+      name: step.name
+      // you can add parameters/options per test if needed
+    }));
+    const allParameters = {};
+    const response = await fetch("http://localhost:5000/api/sequence/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sequence: simpleSeq,
+        parameters: allParameters
+      })
+    });
+    if (!response.body) {
+      setSequenceOutput("No response body?");
+      setIsRunning(false);
+      return;
     }
-    setIsRunning(false);
+    const reader = response.body.getReader();
+    let fullText = "";
+    function read() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          setIsRunning(false);
+          return;
+        }
+        const chunk = new TextDecoder().decode(value);
+        fullText += chunk;
+        setSequenceOutput(fullText);
+        read();
+      });
+    }
+    read();
   };
+
+  // Auto-scroll log to bottom on update
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [sequenceOutput]);
 
   return (
     <div
@@ -145,6 +119,25 @@ export default function RunSequence({ sequence, onTestResult }) {
         >
           {isRunning ? "Running..." : "▶ Run Sequence"}
         </button>
+      )}
+      {/* Log UI */}
+      {sequenceOutput && (
+        <pre
+          ref={logRef}
+          style={{
+            background: "#222",
+            color: "#0f0",
+            padding: 10,
+            marginTop: 15,
+            maxHeight: 300,
+            overflowY: "auto",
+            fontSize: 13,
+            borderRadius: 8,
+            whiteSpace: 'pre-wrap',
+          }}
+        >
+          {sequenceOutput}
+        </pre>
       )}
     </div>
   );
