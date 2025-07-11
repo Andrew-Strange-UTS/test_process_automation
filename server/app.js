@@ -16,10 +16,12 @@ app.use(express.json());
 const gitRoutes = require("./routes/git");
 const streamRoutes = require("./routes/stream");
 const testsRoutes = require("./routes/tests");
+const sequenceRoutes = require("./routes/sequence");
 
 app.use("/api/git", gitRoutes);
 app.use("/api/stream", streamRoutes);
 app.use("/api/tests", testsRoutes);
+app.use("/api/sequence", sequenceRoutes);
 
 // Create HTTP server
 const server = http.createServer(app);

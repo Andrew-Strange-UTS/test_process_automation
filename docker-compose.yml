@@ -1,5 +1,4 @@
 version: "3.9"
-
 services:
   frontend:
     build:
@@ -9,25 +8,18 @@ services:
       - "3000:3000"
     depends_on:
       - backend
-
   backend:
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
     ports:
       - "5000:5000"
-    volumes:
-      - ./tests:/app/tests
-      - ./shared/browser-sessions:/shared/browser-sessions
     environment:
       - SELENIUM_REMOTE_URL=http://selenium:4444/wd/hub
-      - CHROME_USER_PROFILE=/shared/browser-sessions/okta-session
 
   selenium:
     image: selenium/standalone-chrome:latest
     ports:
-      - "4444:4444"
-      - "7900:7900"
+      - "4444:4444"    # Selenium WebDriver endpoint
+      - "7900:7900"    # noVNC view, optional
     shm_size: "2g"
-    volumes:
-      - ./shared/browser-sessions:/shared/browser-sessions

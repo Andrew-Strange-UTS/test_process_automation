@@ -1,8 +1,8 @@
-# Dockerfile.selenium
+FROM selenium/standalone-chrome:latest
 
-selenium:
-    image: selenium/standalone-chrome:latest
-    ports:
-      - "4444:4444"
-      - "7900:7900" # Optional: noVNC if you want visual access
-    shm_size: "2g"
+USER root
+COPY docker/launch-chrome.sh /home/seluser/launch-chrome.sh
+RUN chmod +x /home/seluser/launch-chrome.sh
+
+USER seluser
+ENTRYPOINT ["/home/seluser/launch-chrome.sh"]
