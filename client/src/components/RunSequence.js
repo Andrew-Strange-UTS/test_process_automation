@@ -1,9 +1,13 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
-export default function RunSequence({ sequence, onTestResult }) {
+import React, { useState } from "react";
+
+export default function RunSequence({
+  sequence,
+  onTestResult,
+  onSequenceLog,
+  onBeforeRun, // <== NEW prop!
+}) {
   const [isRunning, setIsRunning] = useState(false);
-  const [sequenceOutput, setSequenceOutput] = useState("");  // ADDED
-  const logRef = useRef(null);
 
   // Construct full sequence with OKTA bookends if needed
   const buildWrappedSequence = () => {
@@ -26,15 +30,17 @@ export default function RunSequence({ sequence, onTestResult }) {
     wrapped.push(...noOktaTests);
     return wrapped;
   };
+
   const wrappedSequence = buildWrappedSequence();
 
-  // Main sequence runner as before, use wrappedSequence not "sequence"
+  // Sequence runner
   const handleRun = async () => {
+    if (onBeforeRun) onBeforeRun(); // <== Clear logs BEFORE anything starts!!
     setIsRunning(true);
-    setSequenceOutput("");
-    // Use wrapped sequence (to include okta logic etc), map to names for backend
-    const simpleSeq = wrappedSequence.map(step => ({
-      name: step.name
+
+    // Prepare backend payload for sequence
+    const simpleSeq = wrappedSequence.map((step) => ({
+      name: step.name,
       // you can add parameters/options per test if needed
     }));
     const allParameters = {};
@@ -43,11 +49,10 @@ export default function RunSequence({ sequence, onTestResult }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         sequence: simpleSeq,
-        parameters: allParameters
-      })
+        parameters: allParameters,
+      }),
     });
     if (!response.body) {
-      setSequenceOutput("No response body?");
       setIsRunning(false);
       return;
     }
@@ -61,19 +66,12 @@ export default function RunSequence({ sequence, onTestResult }) {
         }
         const chunk = new TextDecoder().decode(value);
         fullText += chunk;
-        setSequenceOutput(fullText);
+        if (onSequenceLog) onSequenceLog(fullText);
         read();
       });
     }
     read();
   };
-
-  // Auto-scroll log to bottom on update
-  useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
-  }, [sequenceOutput]);
 
   return (
     <div
@@ -119,25 +117,6 @@ export default function RunSequence({ sequence, onTestResult }) {
         >
           {isRunning ? "Running..." : "▶ Run Sequence"}
         </button>
-      )}
-      {/* Log UI */}
-      {sequenceOutput && (
-        <pre
-          ref={logRef}
-          style={{
-            background: "#222",
-            color: "#0f0",
-            padding: 10,
-            marginTop: 15,
-            maxHeight: 300,
-            overflowY: "auto",
-            fontSize: 13,
-            borderRadius: 8,
-            whiteSpace: 'pre-wrap',
-          }}
-        >
-          {sequenceOutput}
-        </pre>
       )}
     </div>
   );
