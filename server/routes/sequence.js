@@ -17,13 +17,15 @@ router.post("/run", async (req, res) => {
     const seqId = "sequence-" + uuidv4().slice(0, 8);
     const seqDir = path.join(TESTS_ROOT, seqId);
     fs.mkdirSync(seqDir);
-
     // Write the compiled run.js
     const combinedRunJsContent = `
 const { Builder, By, Key, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
 const stepFns = [
 ${sequence.map(test => `  require(${JSON.stringify(path.join(TESTS_ROOT, test.name, "run.js"))})`).join(",\n")}
+];
+const stepNames = [
+${sequence.map(test => `  ${JSON.stringify(test.name)}`).join(",\n")}
 ];
 process.on('uncaughtException', function (err) {
   console.error('[FATAL uncaughtException]', err && err.stack || err);
@@ -48,11 +50,13 @@ async function main() {
     const parameters = ${JSON.stringify(parameters)};
     for (let i = 0; i < stepFns.length; ++i) {
       const fn = stepFns[i];
+      const testName = stepNames[i];
       try {
-        console.log("▶ Running step #" + (i + 1));
+        console.log("▶ Running step #" + (i + 1) + " [" + testName + "]");
         await fn(driver, parameters);
+        console.log("✅ Finished step #" + (i + 1) + " [" + testName + "]");
       } catch (stepError) {
-        console.error("❌ Step #" + (i + 1) + " failed:", stepError && stepError.stack || stepError);
+        console.error("❌ Step #" + (i + 1) + " [" + testName + "] failed:", stepError && stepError.stack || stepError);
         throw stepError;
       }
     }
@@ -68,14 +72,12 @@ async function main() {
 main();
 `
     fs.writeFileSync(path.join(seqDir, "run.js"), combinedRunJsContent);
-
     // Start streaming to client
     res.set({
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
       Connection: "keep-alive"
     });
-
     // --- Announce about to run, then wait ---
     res.write(`[client log] Preparing to run ${seqId}\n`);
     console.log(`[client log] Preparing to run ${seqId}`);
@@ -84,7 +86,6 @@ main();
     await new Promise(resolve => setTimeout(resolve, 2000));
     res.write(`[client log] Now running ${seqId}\n`);
     console.log(`[client log] Now running ${seqId}`);
-
     const child = spawn("node", ["run.js"], {
       cwd: seqDir,
       env: {
@@ -94,7 +95,6 @@ main();
         VISUAL_BROWSER: String(parameters.visualBrowser !== undefined ? parameters.visualBrowser : "true")
       }
     });
-
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", chunk => {
