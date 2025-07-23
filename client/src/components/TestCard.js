@@ -1,5 +1,3 @@
-//TestCard.js
-
 "use client";
 import { useEffect, useState } from "react";
 
@@ -11,20 +9,15 @@ export default function TestCard({
   isInSequence = false,
   onToggleInSequence,
   onOptionsChange = () => {},
-  results = {}
+  results = {},
 }) {
-  const [isLogExpanded, setIsLogExpanded] = useState(false);
-  const [isMetaExpanded, setIsMetaExpanded] = useState(false);
-  const [isRunExpanded, setIsRunExpanded] = useState(false);
-
+  const [openViewer, setOpenViewer] = useState(null);
   const [status, setStatus] = useState("Never run");
   const [lastRun, setLastRun] = useState(null);
   const [log, setLog] = useState("No logs available yet...");
-
   const [visualBrowser, setVisualBrowser] = useState(false);
   const [needsOktaProd, setNeedsOktaProd] = useState(false);
   const [needsOktaTest, setNeedsOktaTest] = useState(false);
-
   const [manualParams, setManualParams] = useState({});
 
   useEffect(() => {
@@ -33,6 +26,7 @@ export default function TestCard({
     if (results.time) setLastRun(results.time);
   }, [results]);
 
+  // Parse metadata and parameter definition array
   const parsedMetadata = (() => {
     if (!metaContent) return {};
     try {
@@ -42,9 +36,37 @@ export default function TestCard({
       return {};
     }
   })();
-
   const title = parsedMetadata.title || name;
-  const parameterMap = parsedMetadata["needed-parameters"] || {};
+  const parameterArr = Array.isArray(parsedMetadata["needed-parameters"])
+    ? parsedMetadata["needed-parameters"]
+    : [];
+
+  // 1. Fill manualParams with defaults on metaContent change or new param definitions
+  useEffect(() => {
+    if (parameterArr && parameterArr.length > 0) {
+      setManualParams(prev => {
+        const result = { ...prev };
+        for (const param of parameterArr) {
+          if (result[param.name] === undefined) {
+            result[param.name] = param.default !== undefined ? param.default : "";
+          }
+        }
+        return result;
+      });
+    }
+    // eslint-disable-next-line
+  }, [metaContent]);
+
+  // Always keep test options in sync with parent's state
+  useEffect(() => {
+    onOptionsChange(name, {
+      visualBrowser,
+      needsOktaProd,
+      needsOktaTest,
+      parameters: manualParams
+    })
+    // eslint-disable-next-line
+  }, [visualBrowser, needsOktaProd, needsOktaTest, manualParams]);
 
   const handleAddToSequence = (e) => {
     const checked = e.target.checked;
@@ -55,6 +77,10 @@ export default function TestCard({
       });
     }
   };
+
+  // Toggle for code viewers
+  const toggleRun = () => setOpenViewer(openViewer === "run" ? null : "run");
+  const toggleMeta = () => setOpenViewer(openViewer === "meta" ? null : "meta");
 
   return (
     <div
@@ -83,7 +109,6 @@ export default function TestCard({
           )}
         </div>
       </div>
-
       {/* Selections */}
       <div style={{ marginTop: "20px", display: "flex", gap: "30px", flexWrap: "wrap" }}>
         <label>
@@ -100,12 +125,6 @@ export default function TestCard({
           onChange={(e) => {
             const checked = e.target.checked;
             setVisualBrowser(checked);
-            onOptionsChange(name, {
-              visualBrowser: checked,
-              needsOktaProd,
-              needsOktaTest,
-              parameters: manualParams
-            });
           }}
         /> Enable visual browser
         </label>
@@ -117,12 +136,6 @@ export default function TestCard({
               const checked = e.target.checked;
               setNeedsOktaProd(checked);
               if (checked) setNeedsOktaTest(false);
-              onOptionsChange(name, {
-                visualBrowser,
-                needsOktaProd: checked,
-                needsOktaTest: false,
-                parameters: manualParams
-              });
             }}
           /> Needs OKTA prod login
         </label>
@@ -134,41 +147,30 @@ export default function TestCard({
               const checked = e.target.checked;
               setNeedsOktaTest(checked);
               if (checked) setNeedsOktaProd(false);
-              onOptionsChange(name, {
-                visualBrowser,
-                needsOktaProd: checked,
-                needsOktaTest: false,
-                parameters: manualParams
-              });
             }}
           /> Needs OKTA test login
         </label>
       </div>
-
-      {/* Parameters */}
-      {Object.entries(parameterMap).length > 0 && (
+      {/* Parameter entry */}
+      {parameterArr.length > 0 && (
         <div style={{ marginTop: "20px" }}>
           <h4 style={{ marginBottom: "10px" }}>Required Parameters:</h4>
-          {Object.entries(parameterMap).map(([label, key]) => (
-            <div key={key} style={{ marginBottom: "10px" }}>
-              <label style={{ display: "block", fontWeight: "bold" }}>{label}</label>
+          {parameterArr.map(field => (
+            <div key={field.name} style={{ marginBottom: "10px" }}>
+              <label style={{ display: "block", fontWeight: "bold" }}>
+                {field.label || field.name}
+              </label>
               <input
                 type="text"
-                value={manualParams[key] || ""}
-                onChange={(e) => {
+                value={manualParams[field.name] ?? field.default ?? ""}
+                onChange={e => {
                   const value = e.target.value;
-                  setManualParams((prev) => {
-                    const updated = { ...prev, [key]: value };
-                    onOptionsChange(name, {
-                      visualBrowser,
-                      needsOktaProd,
-                      needsOktaTest,
-                      parameters: updated
-                    });
-                    return updated;
-                  });
+                  setManualParams((prev) => ({
+                    ...prev,
+                    [field.name]: value,
+                  }));
                 }}
-                placeholder={`Enter value for ${key}`}
+                placeholder={field.default ?? ""}
                 style={{
                   width: "100%",
                   padding: "8px",
@@ -181,114 +183,76 @@ export default function TestCard({
           ))}
         </div>
       )}
-
-      {/* Metadata Viewer */}
-      <div style={{ marginTop: "20px" }}>
-        <button 
-          onClick={() => setIsMetaExpanded((prev) => !prev)}
+      {/* Code viewers: run.js & metadata.json */}
+      <div style={{ marginTop: "20px", display: "flex", gap: "14px", alignItems: "flex-start" }}>
+        <div>
+          <button
+            onClick={toggleRun}
+            style={{
+              padding: "10px 15px",
+              background: "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              width: "200px",
+              fontSize: "16px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            {openViewer === "run" ? `Hide ${runFile}` : `Show ${runFile}`}
+          </button>
+        </div>
+        <div>
+          <button
+            onClick={toggleMeta}
+            style={{
+              padding: "10px 15px",
+              background: "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              width: "200px",
+              fontSize: "16px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            {openViewer === "meta" ? "Hide metadata.json" : "Show metadata.json"}
+          </button>
+        </div>
+      </div>
+      {openViewer === "run" && (
+        <pre
           style={{
-            marginTop: "20px",
-            padding: "10px 15px",
-            background: "#0070f3",
-            color: "white",
-            border: "none",
+            marginTop: "15px",
+            backgroundColor: "#f5f5f5",
+            padding: "15px",
             borderRadius: "5px",
-            width: "200px",
-            fontSize: "16px",
-            fontWeight: "bold",
-            cursor: "pointer",
+            overflowX: "auto",
+            whiteSpace: "pre-wrap",
+            wordWrap: "break-word",
           }}
         >
-          {isMetaExpanded ? "Hide metadata.json" : "Show metadata.json"}
-        </button>
-        {isMetaExpanded && (
-          <pre
-            style={{
-              marginTop: "15px",
-              backgroundColor: "#f5f5f5",
-              padding: "15px",
-              borderRadius: "5px",
-              overflowX: "auto",
-              whiteSpace: "pre-wrap",
-              wordWrap: "break-word",
-            }}
-          >
-            {metaContent || "No metadata.json found."}
-          </pre>
-        )}
-      </div>
-
-      {/* Script Viewer */}
-      <div style={{ marginTop: "20px" }}>
-        <button 
-          onClick={() => setIsRunExpanded((prev) => !prev)}
+          {runContent || `No ${runFile} found.`}
+        </pre>
+      )}
+      {openViewer === "meta" && (
+        <pre
           style={{
-            marginTop: "20px",
-            padding: "10px 15px",
-            background: "#0070f3",
-            color: "white",
-            border: "none",
+            marginTop: "15px",
+            backgroundColor: "#f5f5f5",
+            padding: "15px",
             borderRadius: "5px",
-            width: "200px",
-            fontSize: "16px",
-            fontWeight: "bold",
-            cursor: "pointer",
-          }}         
+            overflowX: "auto",
+            whiteSpace: "pre-wrap",
+            wordWrap: "break-word",
+          }}
         >
-          {isRunExpanded ? `Hide ${runFile}` : `Show ${runFile}`}
-        </button>
-        {isRunExpanded && (
-          <pre
-            style={{
-              marginTop: "15px",
-              backgroundColor: "#f5f5f5",
-              padding: "15px",
-              borderRadius: "5px",
-              overflowX: "auto",
-              whiteSpace: "pre-wrap",
-              wordWrap: "break-word",
-            }}
-          >
-            {runContent || `No ${runFile} found.`}
-          </pre>
-        )}
-      </div>
-
-      {/* Logs */}
-      <div style={{ marginTop: "20px" }}>
-        <button 
-          onClick={() => setIsLogExpanded((prev) => !prev)}
-          style={{
-            marginTop: "20px",
-            padding: "10px 15px",
-            background: "#0070f3",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-            width: "200px",
-            fontSize: "16px",
-            fontWeight: "bold",
-            cursor: "pointer",
-          }}  
-        >
-          {isLogExpanded ? "Hide Log" : "Show Log"}
-        </button>
-        {isLogExpanded && (
-          <pre
-            style={{
-              marginTop: "15px",
-              backgroundColor: "#f5f5f5",
-              padding: "15px",
-              borderRadius: "5px",
-              overflowX: "auto",
-              whiteSpace: "pre-wrap",
-              wordWrap: "break-word",
-            }}
-          >
-            {log}
-          </pre>
-        )}
-      </div>
+          {metaContent || "No metadata.json found."}
+        </pre>
+      )}
+      {/* Logs status only (no log button/viewer) */}
     </div>
   );
 }

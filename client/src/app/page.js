@@ -3,13 +3,14 @@ import { useState, useRef, useEffect } from "react";
 import TestCard from "@/components/TestCard";
 import RunSequence from "@/components/RunSequence";
 import LogGroup from "@/components/LogGroup";
-export default function HomePage() {
-  // Refs for current log state
-  const sequenceBufferRef = useRef("");     // String so far from backend
-  const logsAccumulatorRef = useRef({});    // { group: string }
-  const currentStepRef = useRef(null);      // active step's test name
 
-  // Local state
+export default function HomePage() {
+  // Refs for log state
+  const sequenceBufferRef = useRef("");
+  const logsAccumulatorRef = useRef({});
+  const currentStepRef = useRef(null);
+
+  // State
   const [repoUrl, setRepoUrl] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("repoUrl") || "" : ""
   );
@@ -27,7 +28,7 @@ export default function HomePage() {
   const [serverSideLogs, setServerSideLogs] = useState({});
   const [isServerLogExpanded, setIsServerLogExpanded] = useState(false);
 
-  // Single test runner over WebSocket
+  // WebSocket single test runner
   const handleRunTestViaWebSocket = (testName, options = {}, onDone) => {
     const startTime = new Date().toLocaleString();
     setServerSideLogs((prev) => ({
@@ -36,11 +37,13 @@ export default function HomePage() {
     }));
     const socket = new WebSocket("ws://localhost:5000");
     socket.onopen = () => {
-      socket.send(JSON.stringify({
-        type: "RUN",
-        test: testName,
-        ...options,
-      }));
+      socket.send(
+        JSON.stringify({
+          type: "RUN",
+          test: testName,
+          ...options,
+        })
+      );
     };
     socket.onmessage = (event) => {
       try {
@@ -152,11 +155,11 @@ export default function HomePage() {
       setLoading(false);
     }
   };
-  // Timestamp helper
   function timestamp(line) {
     return `[${new Date().toLocaleTimeString()}] ${line}`;
   }
-  // Streaming log handler (accumulative, per sequence run)
+
+  // --- Streaming sequence log handler with status parsing ---
   const handleSequenceLog = (fullLog) => {
     const prev = sequenceBufferRef.current;
     const newRaw = fullLog.slice(prev.length);
@@ -167,6 +170,8 @@ export default function HomePage() {
     let currentTest = currentStepRef.current;
     for (const rawLine of lines) {
       const line = timestamp(rawLine);
+
+      // Step running?
       const stepStart = line.match(/▶ Running step #\d+\s?\[(.*?)\]/);
       if (stepStart) {
         currentTest = stepStart[1];
@@ -174,13 +179,36 @@ export default function HomePage() {
         logsAccumulator["[SEQUENCE]"] = (logsAccumulator["[SEQUENCE]"] || "") + line + "\n";
         continue;
       }
+      // Step pass:
       const stepDone = line.match(/✅ Finished step #\d+\s?\[(.*?)\]/);
       if (stepDone) {
+        const testName = stepDone[1];
         logsAccumulator["[SEQUENCE]"] = (logsAccumulator["[SEQUENCE]"] || "") + line + "\n";
         currentTest = null;
         currentStepRef.current = null;
+        setTestResults((prev) => ({
+          ...prev,
+          [testName]: {
+            status: "✅ Passed",
+            time: new Date().toLocaleString(),
+          },
+        }));
         continue;
       }
+      // Step fail:
+      const stepFail = line.match(/❌ Step #\d+\s?\[(.*?)\] failed:/);
+      if (stepFail) {
+        const testName = stepFail[1];
+        setTestResults((prev) => ({
+          ...prev,
+          [testName]: {
+            status: "❌ Failed",
+            time: new Date().toLocaleString(),
+          },
+        }));
+        continue;
+      }
+      // Accumulate logs per test or to [SEQUENCE]
       if (currentTest) {
         if (
           !line.includes("▶ Running step") &&
@@ -197,13 +225,15 @@ export default function HomePage() {
       ...logsAccumulator,
     });
   };
-  // Called before any *new* sequence run
+
   const handleClearAllLogs = () => {
     logsAccumulatorRef.current = {};
     sequenceBufferRef.current = "";
     currentStepRef.current = null;
     setServerSideLogs({});
+    setTestResults({});
   };
+
   const hiddenTests = [
     "OKTA-Prod-Login",
     "OKTA-Prod-Login-Finish",
@@ -211,6 +241,7 @@ export default function HomePage() {
     "OKTA-Test-Login-Finish",
   ];
   const visibleTests = tests.filter((testName) => !hiddenTests.includes(testName));
+
   return (
     <div style={{ display: "flex" }}>
       <div style={{ flex: 1, padding: "20px" }}>
@@ -262,7 +293,7 @@ export default function HomePage() {
               cursor: "pointer",
             }}
           >
-            Open Selenium onVNC
+            Open Selenium NoVNC
           </button>
         </div>
         {/* Logs Viewer */}

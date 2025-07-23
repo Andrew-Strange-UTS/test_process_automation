@@ -37,13 +37,21 @@ export default function RunSequence({
   const handleRun = async () => {
     if (onBeforeRun) onBeforeRun(); // <== Clear logs BEFORE anything starts!!
     setIsRunning(true);
+  
 
     // Prepare backend payload for sequence
     const simpleSeq = wrappedSequence.map((step) => ({
       name: step.name,
       // you can add parameters/options per test if needed
     }));
+    // Get all parameters per test
     const allParameters = {};
+    for (const step of wrappedSequence) {
+      if (step.parameters && Object.keys(step.parameters).length > 0) {
+        allParameters[step.name] = step.parameters;
+      }
+    }
+
     const response = await fetch("http://localhost:5000/api/sequence/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
