@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import TestCard from "@/components/TestCard";
 import RunSequence from "@/components/RunSequence";
 import LogGroup from "@/components/LogGroup";
+import SecretsPanel from "@/components/SecretsPanel";
 
 export default function HomePage() {
   // Refs for log state
@@ -27,6 +28,7 @@ export default function HomePage() {
   const [testResults, setTestResults] = useState({});
   const [serverSideLogs, setServerSideLogs] = useState({});
   const [isServerLogExpanded, setIsServerLogExpanded] = useState(false);
+  const [secretsOpen, setSecretsOpen] = useState(false);
 
   // WebSocket single test runner
   const handleRunTestViaWebSocket = (testName, options = {}, onDone) => {
@@ -295,7 +297,26 @@ export default function HomePage() {
           >
             Open Selenium NoVNC
           </button>
+          <button
+            onClick={() => setSecretsOpen(s => !s)}
+            style={{
+              padding: "12px 20px",
+              fontSize: "16px",
+              backgroundColor: "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+            }}
+          >
+            {secretsOpen ? "Close Secrets" : "Open Secrets"}
+          </button>
         </div>
+        {secretsOpen && (
+          <div style={{ margin: '32px auto', width: '700px', maxWidth: '95%' }}>
+            <SecretsPanel />
+          </div>
+        )}
         {/* Logs Viewer */}
         <div
           style={{
@@ -308,6 +329,7 @@ export default function HomePage() {
             boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
           }}
         >
+          
           <button
             onClick={() => setIsServerLogExpanded((prev) => !prev)}
             style={{

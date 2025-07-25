@@ -17,11 +17,13 @@ const gitRoutes = require("./routes/git");
 const streamRoutes = require("./routes/stream");
 const testsRoutes = require("./routes/tests");
 const sequenceRoutes = require("./routes/sequence");
+const secretsRoutes = require("./routes/secrets");
 
 app.use("/api/git", gitRoutes);
 app.use("/api/stream", streamRoutes);
 app.use("/api/tests", testsRoutes);
 app.use("/api/sequence", sequenceRoutes);
+app.use("/api/secrets", secretsRoutes);
 
 // Create HTTP server
 const server = http.createServer(app);

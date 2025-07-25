@@ -1,3 +1,5 @@
+// server/routes/sequence.js
+
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
@@ -6,6 +8,28 @@ const { v4: uuidv4 } = require("uuid");
 const router = express.Router();
 const TESTS_ROOT = path.join(__dirname, "../../tmp/repo/tests");
 
+// --- Import secrets handling utilities ---
+const secretsStore = require("../secrets");
+
+// Utility: Inject secrets into params
+function injectSecretsInParams(obj) {
+  if (typeof obj === "string") {
+    return obj.replace(/\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*\}\}/g, (_, n) => {
+      // Only inject if the secret exists
+      return secretsStore.getSecret(n) ?? "";
+    });
+  }
+  if (Array.isArray(obj)) {
+    return obj.map((v) => injectSecretsInParams(v));
+  }
+  if (obj && typeof obj === "object") {
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, injectSecretsInParams(v)])
+    );
+  }
+  return obj;
+}
+
 router.post("/run", async (req, res) => {
   const { sequence, parameters = {} } = req.body;
   if (!Array.isArray(sequence) || sequence.length === 0) {
@@ -13,11 +37,31 @@ router.post("/run", async (req, res) => {
     return;
   }
   try {
+    // Get all secrets as a flat object { TESTWORDS: 'hunter2', ... }
+    const allSecrets = {};
+    secretsStore.listNames().forEach(name => {
+      allSecrets[name] = secretsStore.getSecret(name);
+    });
+
+    // --- Merge secrets as the default parameters for every step/test
+    // If your incoming parameters is per-test (by name), do:
+    const parametersWithSecrets = {};
+    for (const test of sequence) {
+      parametersWithSecrets[test.name] = {
+        ...(parameters?.[test.name] || {}), // user-supplied params
+        ...allSecrets                      // all available secrets
+      };
+    }
+    // If parameters is flat and not per test, just ...spread both at top level
+
+
+    // --- Regular setup code ---
     // Create a unique sequence folder in TESTS_ROOT
     const seqId = "sequence-" + uuidv4().slice(0, 8);
     const seqDir = path.join(TESTS_ROOT, seqId);
     fs.mkdirSync(seqDir);
-    // Write the compiled run.js file
+
+    // Compile run.js (with .js test references)
     const combinedRunJsContent = `
 const { Builder, By, Key, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
@@ -37,8 +81,8 @@ process.on('unhandledRejection', function (err) {
 });
 console.log('RUNNING IN FOLDER:', ${JSON.stringify(seqDir)});
 console.log('NODE_PATH:', process.env.NODE_PATH);
-console.log('Parameters:', ${JSON.stringify(parameters)});
-
+// ---- Never print raw parameters with secrets ----
+console.log('Parameters present for steps: ' + stepNames.join(', '));
 async function main() {
   const seleniumUrl = process.env.SELENIUM_REMOTE_URL || "http://localhost:4444/wd/hub";
   const options = new chrome.Options();
@@ -50,7 +94,7 @@ async function main() {
   let passedCount = 0;
   try {
     driver = await new Builder().forBrowser("chrome").setChromeOptions(options).usingServer(seleniumUrl).build();
-    const parameters = ${JSON.stringify(parameters)};
+    const parameters = ${JSON.stringify(parametersWithSecrets)};
     for (let i = 0; i < stepFns.length; ++i) {
       const fn = stepFns[i];
       const testName = stepNames[i];
@@ -78,7 +122,9 @@ async function main() {
 }
 main();
 `;
+
     fs.writeFileSync(path.join(seqDir, "run.js"), combinedRunJsContent);
+
     // Start streaming to client
     res.set({
       "Content-Type": "text/plain; charset=utf-8",
@@ -101,13 +147,15 @@ main();
         SELENIUM_REMOTE_URL:
           process.env.SELENIUM_REMOTE_URL || "http://selenium:4444/wd/hub",
         VISUAL_BROWSER: String(
-          parameters.visualBrowser !== undefined
-            ? parameters.visualBrowser
+          parametersWithSecrets.visualBrowser !== undefined
+            ? parametersWithSecrets.visualBrowser
             : "true"
         ),
+        // You can optionally inject secrets as env vars as well (for shell-based tests etc):
+        // ...(Object.fromEntries(Object.entries(secretsStore.listNames().map(n=>[n,secretsStore.getSecret(n)]))))
       },
     });
-    
+
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
       res.write(chunk);
@@ -146,4 +194,5 @@ main();
     res.end();
   }
 });
+
 module.exports = router;
