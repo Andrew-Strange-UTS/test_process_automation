@@ -1,6 +1,6 @@
 //client/src/app/layout.js
 export const metadata = {
-    title: 'Test Runner UI',
+    title: 'UTS Automation UI',
     description: 'Run and manage Selenium tests from UI',
   };
   
