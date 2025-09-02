@@ -1,11 +1,8 @@
-//client/src/components/PATPopup.js
-
 "use client";
 import React from "react";
 
 export default function PATPopup({ open, onClose }) {
   if (!open) return null;
-
   return (
     <>
       {/* Overlay blocks content */}
@@ -36,7 +33,7 @@ export default function PATPopup({ open, onClose }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          pointerEvents: "none"
+          pointerEvents: "none",
         }}
       >
         <div
@@ -44,13 +41,15 @@ export default function PATPopup({ open, onClose }) {
             background: "#fff",
             borderRadius: "12px",
             boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
-            padding: "36px 36px 28px 36px",
+            padding: "36px 36px 24px 36px",
             minWidth: 420,
             maxWidth: "92vw",
             pointerEvents: "auto",
             display: "flex",
             flexDirection: "column",
-            alignItems: "center"
+            alignItems: "center",
+            maxHeight: "88vh",
+            overflowY: "auto"
           }}
           onClick={(e) => e.stopPropagation()} // Prevent overlay click
         >
@@ -58,7 +57,7 @@ export default function PATPopup({ open, onClose }) {
             🚩 Add GitHub Personal Access Token
           </div>
           <p style={{ fontSize: 17, textAlign: "center", margin: 0, marginBottom: 6 }}>
-            Please add a secret called <b>PERSONAL_ACCESS_TOKEN</b> and add the token you get from:
+            Please add 2 secrets called <b>GITHUB_USERNAME</b> and <b>PERSONAL_ACCESS_TOKEN</b> and add your GitHub Username and the token (with the access) you get from:
           </p>
           <a
             href="https://github.com/settings/tokens/new?description=gitingest&scopes=repo"
@@ -75,6 +74,23 @@ export default function PATPopup({ open, onClose }) {
           >
             https://github.com/settings/tokens/new?description=gitingest&scopes=repo
           </a>
+                    {/* IMAGE AT THE BOTTOM */}
+          <img
+            src="/img/steps.png"
+            alt="GitHub SSO token steps"
+            style={{
+              display: "block",
+              marginTop: 28,
+              marginBottom: 0,
+              maxWidth: "100%",
+              width: "100%",
+              maxHeight: 320,
+              height: "auto",
+              objectFit: "contain",
+              borderRadius: 8,
+              boxShadow: "0 2px 7px rgba(0,0,0,0.08)",
+            }}
+          />
           <button
             onClick={onClose}
             style={{
@@ -87,10 +103,12 @@ export default function PATPopup({ open, onClose }) {
               fontWeight: "bold",
               cursor: "pointer",
               marginTop: 8,
+              marginBottom: 15,
             }}
           >
             Close
           </button>
+
         </div>
       </div>
     </>
