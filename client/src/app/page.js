@@ -1,20 +1,21 @@
+//client/src/app/page.js
 "use client";
 import { useState, useRef, useEffect } from "react";
 import TestCard from "@/components/TestCard";
 import RunSequence from "@/components/RunSequence";
 import LogGroup from "@/components/LogGroup";
 import SecretsPanel from "@/components/SecretsPanel";
-
+import PrivateRepoCheckbox from "@/components/PrivateRepoCheckbox";
+import PATPopup from "@/components/PATPopup";
 export default function HomePage() {
   // Refs for log state
   const sequenceBufferRef = useRef("");
   const logsAccumulatorRef = useRef({});
   const currentStepRef = useRef(null);
-
-  // State
   const [repoUrl, setRepoUrl] = useState(() =>
     typeof window !== "undefined" ? localStorage.getItem("repoUrl") || "" : ""
   );
+  
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("repoUrl", repoUrl);
@@ -29,7 +30,16 @@ export default function HomePage() {
   const [serverSideLogs, setServerSideLogs] = useState({});
   const [isServerLogExpanded, setIsServerLogExpanded] = useState(false);
   const [secretsOpen, setSecretsOpen] = useState(false);
-
+  const [patPopupOpen, setPatPopupOpen] = useState(false);
+  
+  const [privateRepo, setPrivateRepo] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("privateRepo") === "true" : false
+  );
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("privateRepo", privateRepo ? "true" : "false");
+    }
+  }, [privateRepo]);
   // WebSocket single test runner
   const handleRunTestViaWebSocket = (testName, options = {}, onDone) => {
     const startTime = new Date().toLocaleString();
@@ -86,7 +96,6 @@ export default function HomePage() {
       socket.close();
     };
   };
-
   const handleOptionsChange = (testName, options) => {
     setTestOptions((prev) => ({
       ...prev,
@@ -107,16 +116,43 @@ export default function HomePage() {
   const handleOpenNoVNC = () => {
     window.open("http://localhost:7900/", "_blank");
   };
+
+  // ---------------- ADDED: check for Personal_Access_Token secret
+  async function hasPATSecret() {
+    try {
+      const res = await fetch("http://localhost:5000/api/secrets", { cache: "no-store" });
+      if (!res.ok) return false;
+      const data = await res.json();
+      return (data.secrets || []).includes("PERSONAL_ACCESS_TOKEN");
+    } catch {
+      return false;
+    }
+  }
+  // ------------------------------------------------------------
+
   const handleClone = async () => {
     setLoading(true);
     setRunSequence([]);
     setTestResults({});
     setTestOptions({});
+    // Check for PAT secret if privateRepo is checked
+    if (privateRepo) {
+      const patExists = await hasPATSecret();
+      if (!patExists) {
+        setPatPopupOpen(true);
+        setPrivateRepo(false)
+        setLoading(false);
+        return;
+      }
+    }
+
+    console.log("CLONE SUBMIT: repoUrl:", repoUrl, "privateRepo:", privateRepo);
+
     try {
       const res = await fetch("http://localhost:5000/api/git/clone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoUrl }),
+        body: JSON.stringify({ repoUrl, privateRepo }),
       });
       if (!res.ok) throw new Error("Failed to clone repo");
       const listRes = await fetch("http://localhost:5000/api/git/list");
@@ -160,7 +196,6 @@ export default function HomePage() {
   function timestamp(line) {
     return `[${new Date().toLocaleTimeString()}] ${line}`;
   }
-
   // --- Streaming sequence log handler with status parsing ---
   const handleSequenceLog = (fullLog) => {
     const prev = sequenceBufferRef.current;
@@ -172,7 +207,6 @@ export default function HomePage() {
     let currentTest = currentStepRef.current;
     for (const rawLine of lines) {
       const line = timestamp(rawLine);
-
       // Step running?
       const stepStart = line.match(/▶ Running step #\d+\s?\[(.*?)\]/);
       if (stepStart) {
@@ -227,7 +261,6 @@ export default function HomePage() {
       ...logsAccumulator,
     });
   };
-
   const handleClearAllLogs = () => {
     logsAccumulatorRef.current = {};
     sequenceBufferRef.current = "";
@@ -235,7 +268,6 @@ export default function HomePage() {
     setServerSideLogs({});
     setTestResults({});
   };
-
   const hiddenTests = [
     "OKTA-Prod-Login",
     "OKTA-Prod-Login-Finish",
@@ -243,7 +275,6 @@ export default function HomePage() {
     "OKTA-Test-Login-Finish",
   ];
   const visibleTests = tests.filter((testName) => !hiddenTests.includes(testName));
-
   return (
     <div style={{ display: "flex" }}>
       <div style={{ flex: 1, padding: "20px" }}>
@@ -269,6 +300,8 @@ export default function HomePage() {
               border: "1px solid #ccc",
             }}
           />
+          <PATPopup open={patPopupOpen} onClose={() => setPatPopupOpen(false)} />
+          <PrivateRepoCheckbox checked={privateRepo} onChange={setPrivateRepo} />
           <button
             onClick={handleClone}
             style={{
