@@ -118,12 +118,13 @@ export default function HomePage() {
   };
 
   // ---------------- ADDED: check for Personal_Access_Token secret
-  async function hasPATSecret() {
+  async function hasGithubSecrets() {
     try {
       const res = await fetch("http://localhost:5000/api/secrets", { cache: "no-store" });
       if (!res.ok) return false;
       const data = await res.json();
-      return (data.secrets || []).includes("PERSONAL_ACCESS_TOKEN");
+      const names = data.secrets || [];
+      return names.includes("PERSONAL_ACCESS_TOKEN") && names.includes("GITHUB_USERNAME");
     } catch {
       return false;
     }
@@ -137,7 +138,7 @@ export default function HomePage() {
     setTestOptions({});
     // Check for PAT secret if privateRepo is checked
     if (privateRepo) {
-      const patExists = await hasPATSecret();
+      const patExists = await hasGithubSecrets();
       if (!patExists) {
         setPatPopupOpen(true);
         setPrivateRepo(false)

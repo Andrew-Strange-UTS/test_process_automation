@@ -5,8 +5,7 @@ const simpleGit = require("simple-git");
 // Always clone to a fixed folder — ignore repo name
 const CLONE_TARGET = path.join(__dirname, "../../tmp/repo");
 const TESTS_DIR = path.join(CLONE_TARGET, "tests");
-
-// Helper to get the PAT secret (using server/secrets.js)
+// Helper to get secrets (using server/secrets.js)
 const { getSecret } = require('../secrets');
 
 function getPersonalAccessToken() {
@@ -18,44 +17,46 @@ function getPersonalAccessToken() {
   return getSecret("PERSONAL_ACCESS_TOKEN") || null;
 }
 
+function getGithubUsername() {
+  if (process.env.GITHUB_USERNAME) {
+    return process.env.GITHUB_USERNAME;
+  }
+  return getSecret("GITHUB_USERNAME") || null;
+}
+
 async function cloneTestRepo(req, res) {
   const { repoUrl, privateRepo } = req.body;
   const repoUrlClean = (repoUrl || "").trim();
-  // Defensive: handle booleans, strings, numbers
   const isPrivate = privateRepo === true || privateRepo === "true" || privateRepo === 1;
-
   console.log("cloneTestRepo: repoUrl:", repoUrl, "privateRepo:", privateRepo, "isPrivate:", isPrivate);
-
   if (!repoUrl) {
     return res.status(400).json({ error: "Repository URL is required" });
   }
   try {
-    // Delete old clone if it exists
     if (fs.existsSync(CLONE_TARGET)) {
       fs.rmSync(CLONE_TARGET, { recursive: true, force: true });
     }
-    let urlToClone = repoUrl;
-
+    let urlToClone = repoUrlClean;
     if (isPrivate) {
       const PAT = getPersonalAccessToken();
+      const USER = getGithubUsername();
       if (!PAT) {
-        console.log("PAT fail")
+        console.log("PAT fail");
         return res.status(403).json({ error: "PERSONAL_ACCESS_TOKEN secret not set" });
       }
-      // Try to extract username from repoUrl
-      let username = "x-access-token"; // Works for GitHub PAT
-      const m = repoUrl.match(/github\.com\/([^\/]+)\//);
-      if (m && m[1]) username = m[1];
-      let urlTail = repoUrl.replace(/^https:\/\//, "");
-      urlToClone = `https://${username}:${encodeURIComponent(PAT)}@${urlTail}`;
-      console.log("CLONE (private):", urlToClone, "PAT found?", !!PAT, "username:", username);
+      if (!USER) {
+        console.log("USERNAME fail");
+        return res.status(403).json({ error: "GITHUB_USERNAME secret not set" });
+      }
+      let urlTail = repoUrlClean.replace(/^https:\/\//, "");
+      urlToClone = `https://${encodeURIComponent(USER)}:${encodeURIComponent(PAT)}@${urlTail}`;
+      console.log("CLONE (private):", urlToClone, "PAT found?", !!PAT, "username:", USER);
     } else {
       console.log("CLONE (public):", urlToClone);
     }
-
     const git = simpleGit();
     console.log(`Cloning ${urlToClone} into ${CLONE_TARGET}...`);
-    await git.clone(urlToClone, CLONE_TARGET); // 🍽️ Clone always to tmp/repo
+    await git.clone(urlToClone, CLONE_TARGET);
     return res.json({ message: "Repo cloned successfully" });
   } catch (error) {
     console.error("❌ Failed to clone repo:", error);
