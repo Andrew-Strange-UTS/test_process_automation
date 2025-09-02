@@ -1,3 +1,4 @@
+//client/src/components/SecretsRow.js
 "use client";
 import { useState } from "react";
 

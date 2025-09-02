@@ -1,3 +1,4 @@
+//client/src/components/SecretsPanel.js
 "use client";
 import { useEffect, useState } from "react";
 import SecretRow from "./SecretRow";
