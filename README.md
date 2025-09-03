@@ -1,4 +1,4 @@
-# UTS Automation UI
+# UTS Automation UI v1.2
 
 This is a Docker container to run Salinium operation (tests but they don'y need to be "tests") from a Next.js front end to view and run all the operations. 
 
