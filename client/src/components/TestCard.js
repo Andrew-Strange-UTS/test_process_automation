@@ -16,9 +16,11 @@ export default function TestCard({
   const [lastRun, setLastRun] = useState(null);
   const [log, setLog] = useState("No logs available yet...");
   const [visualBrowser, setVisualBrowser] = useState(false);
-  const [needsOktaProd, setNeedsOktaProd] = useState(false);
-  const [needsOktaTest, setNeedsOktaTest] = useState(false);
+  const [oktaEnv, setOktaEnv] = useState("none");
   const [manualParams, setManualParams] = useState({});
+  const [zephyrProjectKey, setZephyrProjectKey] = useState("EPEA");
+  const [zephyrCaseKey, setZephyrCaseKey] = useState("");
+  const [zephyrCycleKey, setZephyrCycleKey] = useState("");
 
   useEffect(() => {
     if (results.status) setStatus(results.status);
@@ -61,19 +63,20 @@ export default function TestCard({
   useEffect(() => {
     onOptionsChange(name, {
       visualBrowser,
-      needsOktaProd,
-      needsOktaTest,
-      parameters: manualParams
+      oktaEnv,
+      parameters: manualParams,
+      zephyr: (zephyrProjectKey && zephyrCaseKey && zephyrCycleKey)
+        ? { projectKey: zephyrProjectKey, caseKey: zephyrCaseKey, cycleKey: zephyrCycleKey }
+        : null
     })
     // eslint-disable-next-line
-  }, [visualBrowser, needsOktaProd, needsOktaTest, manualParams]);
+  }, [visualBrowser, oktaEnv, manualParams, zephyrProjectKey, zephyrCaseKey, zephyrCycleKey]);
 
   const handleAddToSequence = (e) => {
     const checked = e.target.checked;
     if (onToggleInSequence) {
       onToggleInSequence(name, checked, {
-        needsOktaProd,
-        needsOktaTest,
+        oktaEnv,
       });
     }
   };
@@ -128,27 +131,23 @@ export default function TestCard({
           }}
         /> Enable visual browser
         </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={needsOktaProd}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setNeedsOktaProd(checked);
-              if (checked) setNeedsOktaTest(false);
+        <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          OKTA Environment:
+          <select
+            value={oktaEnv}
+            onChange={(e) => setOktaEnv(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              fontSize: "14px",
+              borderRadius: "4px",
+              border: "1px solid #ccc",
             }}
-          /> Needs OKTA prod login
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={needsOktaTest}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setNeedsOktaTest(checked);
-              if (checked) setNeedsOktaProd(false);
-            }}
-          /> Needs OKTA test login
+          >
+            <option value="none">None</option>
+            <option value="prod">Prod</option>
+            <option value="preprod">Pre-prod</option>
+            <option value="test">Test</option>
+          </select>
         </label>
       </div>
       {/* Parameter entry */}
@@ -183,6 +182,48 @@ export default function TestCard({
           ))}
         </div>
       )}
+      {/* Zephyr Scale fields */}
+      <div style={{
+        marginTop: "20px",
+        padding: "14px 18px",
+        background: "#f8f5ff",
+        borderRadius: "8px",
+        border: "1px solid #e0d4f5",
+      }}>
+        <h4 style={{ marginBottom: "10px", color: "#7c3aed" }}>Zephyr Scale</h4>
+        <div style={{ display: "flex", gap: "12px" }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontWeight: "bold", fontSize: "13px", marginBottom: "4px" }}>Project Key</label>
+            <input
+              type="text"
+              value={zephyrProjectKey}
+              onChange={e => setZephyrProjectKey(e.target.value)}
+              placeholder="EPEA"
+              style={{ width: "100%", padding: "8px", fontSize: "14px", borderRadius: "4px", border: "1px solid #ccc", boxSizing: "border-box" }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontWeight: "bold", fontSize: "13px", marginBottom: "4px" }}>Case Key</label>
+            <input
+              type="text"
+              value={zephyrCaseKey}
+              onChange={e => setZephyrCaseKey(e.target.value)}
+              placeholder="EPEA-T123"
+              style={{ width: "100%", padding: "8px", fontSize: "14px", borderRadius: "4px", border: "1px solid #ccc", boxSizing: "border-box" }}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ display: "block", fontWeight: "bold", fontSize: "13px", marginBottom: "4px" }}>Cycle Key</label>
+            <input
+              type="text"
+              value={zephyrCycleKey}
+              onChange={e => setZephyrCycleKey(e.target.value)}
+              placeholder="EPEA-R45"
+              style={{ width: "100%", padding: "8px", fontSize: "14px", borderRadius: "4px", border: "1px solid #ccc", boxSizing: "border-box" }}
+            />
+          </div>
+        </div>
+      </div>
       {/* Code viewers: run.js & metadata.json */}
       <div style={{ marginTop: "20px", display: "flex", gap: "14px", alignItems: "flex-start" }}>
         <div>
@@ -190,7 +231,7 @@ export default function TestCard({
             onClick={toggleRun}
             style={{
               padding: "10px 15px",
-              background: "#0070f3",
+              background: "#7c3aed",
               color: "white",
               border: "none",
               borderRadius: "5px",
@@ -208,7 +249,7 @@ export default function TestCard({
             onClick={toggleMeta}
             style={{
               padding: "10px 15px",
-              background: "#0070f3",
+              background: "#7c3aed",
               color: "white",
               border: "none",
               borderRadius: "5px",

@@ -7,6 +7,7 @@ const { spawn } = require("child_process");
 const { v4: uuidv4 } = require("uuid");
 const router = express.Router();
 const TESTS_ROOT = path.join(__dirname, "../../tmp/repo/tests");
+const BUILTINS_DIR = path.join(__dirname, "../builtins");
 
 // --- Import secrets handling utilities ---
 const secretsStore = require("../secrets");
@@ -43,13 +44,23 @@ router.post("/run", async (req, res) => {
       allSecrets[name] = secretsStore.getSecret(name);
     });
 
+    // Validate: if any step has Zephyr config, a ZEPHYR_API_TOKEN secret must exist
+    const hasZephyrStep = sequence.some(test => test.zephyr);
+    if (hasZephyrStep && !allSecrets["ZEPHYR_API_TOKEN"]) {
+      res.status(400).json({
+        error: "One or more tests have Zephyr Scale fields configured, but no ZEPHYR_API_TOKEN secret is set. Please add it via the Secrets Manager."
+      });
+      return;
+    }
+
     // --- Merge secrets as the default parameters for every step/test
     // If your incoming parameters is per-test (by name), do:
     const parametersWithSecrets = {};
     for (const test of sequence) {
       parametersWithSecrets[test.name] = {
         ...(parameters?.[test.name] || {}), // user-supplied params
-        ...allSecrets                      // all available secrets
+        ...allSecrets,                      // all available secrets
+        ...(test.oktaUrl ? { oktaUrl: test.oktaUrl } : {}), // OKTA URL for built-in login steps
       };
     }
     // If parameters is flat and not per test, just ...spread both at top level
@@ -62,15 +73,43 @@ router.post("/run", async (req, res) => {
     fs.mkdirSync(seqDir);
 
     // Compile run.js (with .js test references)
+    const zephyrToken = allSecrets["ZEPHYR_API_TOKEN"] || "";
     const combinedRunJsContent = `
 const { Builder, By, Key, until } = require('selenium-webdriver');
 const chrome = require('selenium-webdriver/chrome');
+const { postTestExecution } = require(${JSON.stringify(path.join(__dirname, "../utils/zephyr.js"))});
 const stepFns = [
-${sequence.map(test => `  require(${JSON.stringify(path.join(TESTS_ROOT, test.name, "run.js"))})`).join(",\n")}
+${sequence.map(test => {
+  if (test.builtin) {
+    return `  require(${JSON.stringify(path.join(BUILTINS_DIR, test.builtin + ".js"))})`;
+  }
+  return `  require(${JSON.stringify(path.join(TESTS_ROOT, test.name, "run.js"))})`;
+}).join(",\n")}
 ];
 const stepNames = [
 ${sequence.map(test => `  ${JSON.stringify(test.name)}`).join(",\n")}
 ];
+const stepZephyrConfigs = [
+${sequence.map(test => `  ${JSON.stringify(test.zephyr || null)}`).join(",\n")}
+];
+const ZEPHYR_TOKEN = ${JSON.stringify(zephyrToken)};
+function log(msg) { process.stdout.write(msg + "\\n"); }
+async function sendZephyrResult(zephyrConfig, statusName, stepResults) {
+  if (!zephyrConfig || !ZEPHYR_TOKEN) return;
+  try {
+    const result = await postTestExecution(ZEPHYR_TOKEN, {
+      projectKey: zephyrConfig.projectKey,
+      testCaseKey: zephyrConfig.caseKey,
+      testCycleKey: zephyrConfig.cycleKey,
+      statusName,
+      testScriptResults: stepResults.length > 0 ? stepResults : undefined,
+    });
+    log("📡 [Zephyr] Reported " + statusName + " for " + zephyrConfig.caseKey + " (HTTP " + result.statusCode + ")");
+    log("📡 [Zephyr] Response: " + result.body);
+  } catch (err) {
+    log("📡 [Zephyr] ❌ Failed to report for " + zephyrConfig.caseKey + ": " + (err && err.message || err));
+  }
+}
 process.on('uncaughtException', function (err) {
   console.error('[FATAL uncaughtException]', err && err.stack || err);
   process.exit(2);
@@ -99,14 +138,27 @@ async function main() {
       const fn = stepFns[i];
       const testName = stepNames[i];
       const testParams = parameters[testName] || {};
+      const zephyrConfig = stepZephyrConfigs[i];
+      const zephyrStepResults = [];
+      // zephyrLog(actualResult)            → logs a passing step
+      // zephyrLog(actualResult, "Fail")    → logs a failing step
+      const zephyrLog = function(actualResult, status) {
+        zephyrStepResults.push({
+          statusName: status || "Pass",
+          actualResult: String(actualResult),
+        });
+      };
       try {
         console.log("▶ Running step #" + (i + 1) + " [" + testName + "]");
-        await fn(driver, testParams);
+        await fn(driver, testParams, zephyrLog);
         console.log("✅ Finished step #" + (i + 1) + " [" + testName + "]");
         passedCount++;
+        await sendZephyrResult(zephyrConfig, "Pass", zephyrStepResults);
       } catch (stepError) {
         failedCount++;
         console.error("❌ Step #" + (i + 1) + " [" + testName + "] failed:", stepError && stepError.stack || stepError);
+        zephyrLog("ERROR: " + (stepError && stepError.message || stepError), "Fail");
+        await sendZephyrResult(zephyrConfig, "Fail", zephyrStepResults);
         // Do not throw; just log and continue to next step.
       }
     }

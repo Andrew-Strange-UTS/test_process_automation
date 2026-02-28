@@ -2,6 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import SecretRow from "./SecretRow";
+import { BACKEND_URL } from "@/config";
 
 export default function SecretsPanel() {
   const [secrets, setSecrets] = useState([]);
@@ -13,7 +14,7 @@ export default function SecretsPanel() {
 
   // Load secret names only
   useEffect(() => {
-    fetch("http://localhost:5000/api/secrets")
+    fetch(`${BACKEND_URL}/api/secrets`)
       .then(res => res.json())
       .then(data => setSecrets(data.secrets || []));
   }, [reload]);
@@ -30,7 +31,7 @@ export default function SecretsPanel() {
       setError("Secret value cannot be empty.");
       return;
     }
-    fetch("http://localhost:5000/api/secrets", {
+    fetch(`${BACKEND_URL}/api/secrets`, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({ name: newName, value: newValue })
@@ -66,7 +67,7 @@ export default function SecretsPanel() {
         />
         <button type="submit"
           style={{
-            padding: "10px 18px", background: "#0070f3", color: "#fff",
+            padding: "10px 18px", background: "#7c3aed", color: "#fff",
             border: "none", borderRadius: 4, fontWeight: "bold", cursor: "pointer"
           }}
         >Add Secret</button>

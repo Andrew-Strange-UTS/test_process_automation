@@ -1,6 +1,7 @@
 //client/src/component/RunSequence.js 
 "use client";
 import React, { useState } from "react";
+import { BACKEND_URL } from "@/config";
 
 export default function RunSequence({
   sequence,
@@ -10,24 +11,44 @@ export default function RunSequence({
 }) {
   const [isRunning, setIsRunning] = useState(false);
 
+  // OKTA environment URLs
+  const oktaUrls = {
+    prod: "https://login.uts.edu.au",
+    preprod: "https://login-preprod.uts.edu.au",
+    test: "https://login-test.uts.edu.au",
+  };
+
   // Construct full sequence with OKTA bookends if needed
   const buildWrappedSequence = () => {
     const wrapped = [];
-    const prodOktaTests = sequence.filter((t) => t?.needsOktaProd);
-    const testOktaTests = sequence.filter((t) => t?.needsOktaTest);
-    const noOktaTests = sequence.filter(
-      (t) => !t?.needsOktaProd && !t?.needsOktaTest
-    );
-    if (prodOktaTests.length > 0) {
-      wrapped.push({ name: "OKTA-Prod-Login", visualBrowser: true });
-      wrapped.push(...prodOktaTests);
-      wrapped.push({ name: "OKTA-Prod-Login-Finish", visualBrowser: true });
+    const envGroups = { prod: [], preprod: [], test: [] };
+    const noOktaTests = [];
+
+    for (const t of sequence) {
+      if (t.oktaEnv && t.oktaEnv !== "none" && envGroups[t.oktaEnv]) {
+        envGroups[t.oktaEnv].push(t);
+      } else {
+        noOktaTests.push(t);
+      }
     }
-    if (testOktaTests.length > 0) {
-      wrapped.push({ name: "OKTA-Test-Login", visualBrowser: true });
-      wrapped.push(...testOktaTests);
-      wrapped.push({ name: "OKTA-Test-Login-Finish", visualBrowser: true });
+
+    for (const [env, tests] of Object.entries(envGroups)) {
+      if (tests.length > 0) {
+        wrapped.push({
+          name: `OKTA Login (${env})`,
+          builtin: "okta-login",
+          oktaUrl: oktaUrls[env],
+          visualBrowser: true,
+        });
+        wrapped.push(...tests);
+        wrapped.push({
+          name: `OKTA Finish (${env})`,
+          builtin: "okta-login-finish",
+          visualBrowser: true,
+        });
+      }
     }
+
     wrapped.push(...noOktaTests);
     return wrapped;
   };
@@ -43,7 +64,9 @@ export default function RunSequence({
     // Prepare backend payload for sequence
     const simpleSeq = wrappedSequence.map((step) => ({
       name: step.name,
-      // you can add parameters/options per test if needed
+      ...(step.zephyr ? { zephyr: step.zephyr } : {}),
+      ...(step.builtin ? { builtin: step.builtin } : {}),
+      ...(step.oktaUrl ? { oktaUrl: step.oktaUrl } : {}),
     }));
     // Get all parameters per test
     const allParameters = {};
@@ -53,7 +76,7 @@ export default function RunSequence({
       }
     }
 
-    const response = await fetch("http://localhost:5000/api/sequence/run", {
+    const response = await fetch(`${BACKEND_URL}/api/sequence/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -61,6 +84,16 @@ export default function RunSequence({
         parameters: allParameters,
       }),
     });
+    if (!response.ok) {
+      try {
+        const err = await response.json();
+        if (onSequenceLog) onSequenceLog(`❌ Error: ${err.error || "Unknown error"}`);
+      } catch {
+        if (onSequenceLog) onSequenceLog(`❌ Error: Server returned status ${response.status}`);
+      }
+      setIsRunning(false);
+      return;
+    }
     if (!response.body) {
       setIsRunning(false);
       return;
@@ -100,8 +133,11 @@ export default function RunSequence({
         {wrappedSequence.map((test, i) => (
           <li key={i} style={{ marginBottom: "8px" }}>
             {test.name}
+            {test.zephyr && (
+              <span style={{ marginLeft: "6px" }} title="Zephyr Scale enabled">🚩</span>
+            )}
             {test.visualBrowser && (
-              <span style={{ color: "#0070f3", marginLeft: "6px" }}>👁</span>
+              <span style={{ color: "#7c3aed", marginLeft: "6px" }}>👁</span>
             )}
           </li>
         ))}
@@ -113,7 +149,7 @@ export default function RunSequence({
           style={{
             marginTop: "20px",
             padding: "10px 15px",
-            background: isRunning ? "#aaa" : "#0070f3",
+            background: isRunning ? "#aaa" : "#7c3aed",
             color: "white",
             border: "none",
             borderRadius: "5px",
