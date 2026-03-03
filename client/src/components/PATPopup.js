@@ -94,7 +94,7 @@ export default function PATPopup({ open, onClose }) {
           <button
             onClick={onClose}
             style={{
-              background: "#0070f3",
+              background: "#7c3aed",
               color: "#fff",
               border: "none",
               borderRadius: 6,

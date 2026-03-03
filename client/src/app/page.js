@@ -7,6 +7,7 @@ import LogGroup from "@/components/LogGroup";
 import SecretsPanel from "@/components/SecretsPanel";
 import PrivateRepoCheckbox from "@/components/PrivateRepoCheckbox";
 import PATPopup from "@/components/PATPopup";
+import { BACKEND_URL, WS_URL, NOVNC_URL } from "@/config";
 export default function HomePage() {
   // Refs for log state
   const sequenceBufferRef = useRef("");
@@ -47,7 +48,7 @@ export default function HomePage() {
       ...prev,
       [testName]: `[${startTime}] ─ started...\n`,
     }));
-    const socket = new WebSocket("ws://localhost:5000");
+    const socket = new WebSocket(WS_URL);
     socket.onopen = () => {
       socket.send(
         JSON.stringify({
@@ -114,13 +115,13 @@ export default function HomePage() {
     });
   };
   const handleOpenNoVNC = () => {
-    window.open("http://localhost:7900/", "_blank");
+    window.open(NOVNC_URL, "_blank");
   };
 
   // ---------------- ADDED: check for Personal_Access_Token secret
   async function hasGithubSecrets() {
     try {
-      const res = await fetch("http://localhost:5000/api/secrets", { cache: "no-store" });
+      const res = await fetch(`${BACKEND_URL}/api/secrets`, { cache: "no-store" });
       if (!res.ok) return false;
       const data = await res.json();
       const names = data.secrets || [];
@@ -150,13 +151,13 @@ export default function HomePage() {
     console.log("CLONE SUBMIT: repoUrl:", repoUrl, "privateRepo:", privateRepo);
 
     try {
-      const res = await fetch("http://localhost:5000/api/git/clone", {
+      const res = await fetch(`${BACKEND_URL}/api/git/clone`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repoUrl, privateRepo }),
       });
       if (!res.ok) throw new Error("Failed to clone repo");
-      const listRes = await fetch("http://localhost:5000/api/git/list");
+      const listRes = await fetch(`${BACKEND_URL}/api/git/list`);
       const data = await listRes.json();
       setTests(data);
       const filesMap = {};
@@ -165,7 +166,7 @@ export default function HomePage() {
         let runFile = null;
         let runContent = null;
         for (const file of possibleFiles) {
-          const tryFile = await fetch(`http://localhost:5000/api/git/${testName}/${file}`);
+          const tryFile = await fetch(`${BACKEND_URL}/api/git/${testName}/${file}`);
           if (tryFile.ok) {
             const result = await tryFile.json();
             runFile = file;
@@ -175,7 +176,7 @@ export default function HomePage() {
         }
         let metaContent = null;
         try {
-          const metaRes = await fetch(`http://localhost:5000/api/git/${testName}/metadata.json`);
+          const metaRes = await fetch(`${BACKEND_URL}/api/git/${testName}/metadata.json`);
           if (metaRes.ok) {
             const meta = await metaRes.json();
             metaContent = meta.content;
@@ -274,8 +275,47 @@ export default function HomePage() {
     "OKTA-Prod-Login-Finish",
     "OKTA-Test-Login",
     "OKTA-Test-Login-Finish",
+    "OKTA-Preprod-Login",
+    "OKTA-Preprod-Login-Finish",
   ];
   const visibleTests = tests.filter((testName) => !hiddenTests.includes(testName));
+
+  const defaultTestRunContent = [
+    'const { By } = require("selenium-webdriver");',
+    '',
+    'function log(msg) {',
+    '  process.stdout.write(`${msg}\\n`);',
+    '}',
+    '',
+    'module.exports = async function (driver, parameters = {}, zephyrLog) {',
+    '  if (typeof zephyrLog !== "function") zephyrLog = function () {};',
+    '',
+    '  try {',
+    '    log("Navigating to https://coursehandbook.uts.edu.au/");',
+    '    await driver.get("https://coursehandbook.uts.edu.au/");',
+    '    await driver.sleep(2000);',
+    '',
+    '    log("Looking for UTS logo image...");',
+    '    const found = await driver.wait(async () => {',
+    '      const logos = await driver.findElements(',
+    '        By.css(\'img[alt="University of Technology Sydney"]\')',
+    '      );',
+    '      return logos.length > 0;',
+    '    }, 10000);',
+    '',
+    '    if (!found) {',
+    '      throw new Error("UTS logo image not found on page.");',
+    '    }',
+    '',
+    '    log("PASS: UTS logo is present and visible.");',
+    '    zephyrLog("Navigated to coursehandbook.uts.edu.au — UTS logo is present and visible.", "Pass");',
+    '  } catch (err) {',
+    '    zephyrLog("FAIL: " + (err && err.message), "Fail");',
+    '    throw err;',
+    '  }',
+    '};',
+  ].join('\n');
+
   return (
     <div style={{ display: "flex" }}>
       <div style={{ flex: 1, padding: "20px" }}>
@@ -308,7 +348,7 @@ export default function HomePage() {
             style={{
               padding: "12px 20px",
               fontSize: "16px",
-              backgroundColor: "#0070f3",
+              backgroundColor: "#7c3aed",
               color: "white",
               border: "none",
               borderRadius: "5px",
@@ -322,7 +362,7 @@ export default function HomePage() {
             style={{
               padding: "12px 20px",
               fontSize: "16px",
-              backgroundColor: "#0070f3",
+              backgroundColor: "#7c3aed",
               color: "white",
               border: "none",
               borderRadius: "5px",
@@ -336,7 +376,7 @@ export default function HomePage() {
             style={{
               padding: "12px 20px",
               fontSize: "16px",
-              backgroundColor: "#0070f3",
+              backgroundColor: "#7c3aed",
               color: "white",
               border: "none",
               borderRadius: "5px",
@@ -369,7 +409,7 @@ export default function HomePage() {
             style={{
               padding: "10px 20px",
               fontWeight: "bold",
-              backgroundColor: "#0070f3",
+              backgroundColor: "#7c3aed",
               color: "#fff",
               border: "none",
               borderRadius: "5px",
@@ -408,21 +448,36 @@ export default function HomePage() {
         {loading ? (
           <p style={{ textAlign: "center", fontStyle: "italic" }}>Loading tests...</p>
         ) : visibleTests.length === 0 ? (
-          <div
-            style={{
-              width: "1400px",
-              margin: "40px auto",
-              backgroundColor: "#0070f3",
-              color: "white",
-              borderRadius: "10px",
-              padding: "40px",
-              textAlign: "center",
-              fontSize: "24px",
-              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
-            }}
-          >
-            No Tests Loaded
-          </div>
+          <>
+            <div
+              style={{
+                width: "1400px",
+                margin: "40px auto 0",
+                backgroundColor: "#7c3aed",
+                color: "white",
+                borderRadius: "10px",
+                padding: "20px 40px",
+                textAlign: "center",
+                fontSize: "20px",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+              }}
+            >
+              No GitHub Tests Repo Loaded — Showing only default test
+            </div>
+            <TestCard
+              key="__default-test"
+              name="__default-test"
+              runContent={defaultTestRunContent}
+              runFile="run.js"
+              metaContent={JSON.stringify({ title: "Default Test — UTS Course Handbook Logo Check - 1 Zephyr step" }, null, 2)}
+              isInSequence={runSequence.some((t) => t.name === "__default-test")}
+              onToggleInSequence={(name, checked, flags) =>
+                handleToggleSequence(name, checked, { ...flags, builtin: "default-test" })
+              }
+              onOptionsChange={handleOptionsChange}
+              results={testResults["__default-test"]}
+            />
+          </>
         ) : (
           visibleTests.map((name) => (
             <TestCard

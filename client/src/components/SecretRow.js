@@ -1,6 +1,7 @@
 //client/src/components/SecretsRow.js
 "use client";
 import { useState } from "react";
+import { BACKEND_URL } from "@/config";
 
 export default function SecretRow({ name, refreshList }) {
   const [editMode, setEditMode] = useState(false);
@@ -9,7 +10,7 @@ export default function SecretRow({ name, refreshList }) {
 
   function handleDelete() {
     if (!window.confirm(`Delete secret ${name}?`)) return;
-    fetch(`http://localhost:5000/api/secrets/${encodeURIComponent(name)}`, { method: "DELETE" })
+    fetch(`${BACKEND_URL}/api/secrets/${encodeURIComponent(name)}`, { method: "DELETE" })
       .then(res => {
         if (!res.ok) throw new Error("Delete failed");
         setActionMsg("Deleted!");
@@ -22,7 +23,7 @@ export default function SecretRow({ name, refreshList }) {
     e.preventDefault();
     setActionMsg("");
     if (!newValue.trim()) { setActionMsg("Value cannot be empty."); return; }
-    fetch(`http://localhost:5000/api/secrets/${encodeURIComponent(name)}`, {
+    fetch(`${BACKEND_URL}/api/secrets/${encodeURIComponent(name)}`, {
       method: "PUT",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ value: newValue })
@@ -51,14 +52,14 @@ export default function SecretRow({ name, refreshList }) {
               onChange={e => setNewValue(e.target.value)}
               style={{ padding: "6px", borderRadius: 4, border: "1px solid #ccc", fontSize: "13px" }}
             />
-            <button type="submit" style={{ padding: "4px 10px", fontSize: "13px", background: "#0070f3", color: "#fff", border: "none", borderRadius: 4 }}>Set</button>
+            <button type="submit" style={{ padding: "4px 10px", fontSize: "13px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 4 }}>Set</button>
             <button type="button" onClick={() => { setEditMode(false); setNewValue(""); }} style={{ padding: "4px 8px", fontSize: "13px", background: "#aaa", color: "#fff", border: "none", borderRadius: 4 }}>Cancel</button>
           </form>
         ) : (
           <>
             <button
               onClick={() => setEditMode(true)}
-              style={{ padding: "4px 10px", marginRight: 5, fontSize: "13px", background: "#0070f3", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
+              style={{ padding: "4px 10px", marginRight: 5, fontSize: "13px", background: "#7c3aed", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
             >Edit</button>
             <button
               onClick={handleDelete}

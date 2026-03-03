@@ -5,6 +5,12 @@ FROM node:18 AS builder
 
 WORKDIR /app
 
+# Accept build-time args for configurable URLs
+ARG NEXT_PUBLIC_BACKEND_URL=http://localhost:5000
+ARG NEXT_PUBLIC_NOVNC_URL=http://localhost:7900
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_NOVNC_URL=$NEXT_PUBLIC_NOVNC_URL
+
 # Install deps
 COPY client/package*.json ./
 RUN npm install

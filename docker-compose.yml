@@ -3,8 +3,11 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.frontend
+      args:
+        - NEXT_PUBLIC_BACKEND_URL=http://localhost:${BACKEND_PORT:-5000}
+        - NEXT_PUBLIC_NOVNC_URL=http://localhost:${NOVNC_PORT:-7900}
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - backend
   backend:
@@ -12,19 +15,20 @@ services:
       context: .
       dockerfile: docker/Dockerfile.backend
     ports:
-      - "5000:5000"
+      - "${BACKEND_PORT:-5000}:5000"
     environment:
       - SELENIUM_REMOTE_URL=http://selenium:4444/wd/hub
+      - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-3000}
     volumes:
       - secrets-data:/app/user-secrets    # for secrets.json.enc and the secrets master key
 
 
   selenium:
     image: selenium/standalone-chrome:latest
-    platform: linux/amd64 
+    platform: linux/amd64
     ports:
-      - "4444:4444"    # Selenium WebDriver endpoint
-      - "7900:7900"    # noVNC view, optional
+      - "${SELENIUM_PORT:-4444}:4444"    # Selenium WebDriver endpoint
+      - "${NOVNC_PORT:-7900}:7900"    # noVNC view, optional
     shm_size: "2g"
 
 volumes:
