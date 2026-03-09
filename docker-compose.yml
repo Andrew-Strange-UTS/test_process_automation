@@ -19,8 +19,11 @@ services:
     environment:
       - SELENIUM_REMOTE_URL=http://selenium:4444/wd/hub
       - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-3000}
+      - TZ=${TZ}
     volumes:
       - secrets-data:/app/user-secrets    # for secrets.json.enc and the secrets master key
+      - schedules-data:/app/schedules     # for scheduled sequences
+      - /etc/localtime:/etc/localtime:ro  # sync container clock with host
 
 
   selenium:
@@ -33,3 +36,4 @@ services:
 
 volumes:
   secrets-data:
+  schedules-data:

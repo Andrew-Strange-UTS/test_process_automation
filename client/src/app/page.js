@@ -7,6 +7,7 @@ import LogGroup from "@/components/LogGroup";
 import SecretsPanel from "@/components/SecretsPanel";
 import PrivateRepoCheckbox from "@/components/PrivateRepoCheckbox";
 import PATPopup from "@/components/PATPopup";
+import SchedulePanel from "@/components/SchedulePanel";
 import { BACKEND_URL, WS_URL, NOVNC_URL } from "@/config";
 export default function HomePage() {
   // Refs for log state
@@ -125,7 +126,7 @@ export default function HomePage() {
       if (!res.ok) return false;
       const data = await res.json();
       const names = data.secrets || [];
-      return names.includes("PERSONAL_ACCESS_TOKEN") && names.includes("GITHUB_USERNAME");
+      return names.includes("GITHUB_PERSONAL_ACCESS_TOKEN") && names.includes("GITHUB_USERNAME");
     } catch {
       return false;
     }
@@ -444,6 +445,53 @@ export default function HomePage() {
             </div>
           )}
         </div>
+        {/* Schedule Panel */}
+        <SchedulePanel
+          sequencePayload={(() => {
+            // Build the same payload that RunSequence sends
+            const oktaUrls = {
+              prod: "https://login.uts.edu.au",
+              preprod: "https://login-preprod.uts.edu.au",
+              test: "https://login-test.uts.edu.au",
+            };
+            const enriched = runSequence.map((t) => ({
+              ...t,
+              ...(testOptions[t.name] || {}),
+            }));
+            const wrapped = [];
+            const envGroups = { prod: [], preprod: [], test: [] };
+            const noOktaTests = [];
+            for (const t of enriched) {
+              if (t.oktaEnv && t.oktaEnv !== "none" && envGroups[t.oktaEnv]) {
+                envGroups[t.oktaEnv].push(t);
+              } else {
+                noOktaTests.push(t);
+              }
+            }
+            for (const [env, tests] of Object.entries(envGroups)) {
+              if (tests.length > 0) {
+                wrapped.push({ name: `OKTA Login (${env})`, builtin: "okta-login", oktaUrl: oktaUrls[env], visualBrowser: true });
+                wrapped.push(...tests);
+                wrapped.push({ name: `OKTA Finish (${env})`, builtin: "okta-login-finish", visualBrowser: true });
+              }
+            }
+            wrapped.push(...noOktaTests);
+            const simpleSeq = wrapped.map((step) => ({
+              name: step.name,
+              ...(step.zephyr ? { zephyr: step.zephyr } : {}),
+              ...(step.builtin ? { builtin: step.builtin } : {}),
+              ...(step.oktaUrl ? { oktaUrl: step.oktaUrl } : {}),
+            }));
+            const allParameters = {};
+            for (const step of wrapped) {
+              if (step.parameters && Object.keys(step.parameters).length > 0) {
+                allParameters[step.name] = step.parameters;
+              }
+            }
+            return { sequence: simpleSeq, parameters: allParameters };
+          })()}
+          stepNames={runSequence.map((t) => t.name)}
+        />
         {/* Test cards */}
         {loading ? (
           <p style={{ textAlign: "center", fontStyle: "italic" }}>Loading tests...</p>

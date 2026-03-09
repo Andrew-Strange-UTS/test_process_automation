@@ -10,7 +10,7 @@ const app = express();
 
 // Middleware
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:3000" }));
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // Routes
 const gitRoutes = require("./routes/git");
@@ -18,12 +18,18 @@ const streamRoutes = require("./routes/stream");
 const testsRoutes = require("./routes/tests");
 const sequenceRoutes = require("./routes/sequence");
 const secretsRoutes = require("./routes/secrets");
+const schedulesRoutes = require("./routes/schedules");
 
 app.use("/api/git", gitRoutes);
 app.use("/api/stream", streamRoutes);
 app.use("/api/tests", testsRoutes);
 app.use("/api/sequence", sequenceRoutes);
 app.use("/api/secrets", secretsRoutes);
+app.use("/api/schedules", schedulesRoutes);
+
+// Restore scheduled jobs on startup
+const { restoreSchedules } = require("./scheduler");
+restoreSchedules();
 
 // Create HTTP server
 const server = http.createServer(app);

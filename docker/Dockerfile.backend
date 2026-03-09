@@ -35,6 +35,4 @@ RUN mkdir -p /tmp/repo/tests
 # Expose backend port
 EXPOSE 5000
 
-# # 🔄 Use init.sh as ENTRYPOINT to configure before CMD
-# ENTRYPOINT ["/init.sh"]
 CMD ["node", "index.js"]
