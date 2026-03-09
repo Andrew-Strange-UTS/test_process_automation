@@ -10,11 +10,11 @@ const { getSecret } = require('../secrets');
 
 function getPersonalAccessToken() {
   // 1. Try from environment variable (like the tests do)
-  if (process.env.PERSONAL_ACCESS_TOKEN) {
-    return process.env.PERSONAL_ACCESS_TOKEN;
+  if (process.env.GITHUB_PERSONAL_ACCESS_TOKEN) {
+    return process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
   }
   // 2. Fallback to internal encrypted secrets datastore
-  return getSecret("PERSONAL_ACCESS_TOKEN") || null;
+  return getSecret("GITHUB_PERSONAL_ACCESS_TOKEN") || null;
 }
 
 function getGithubUsername() {
@@ -42,7 +42,7 @@ async function cloneTestRepo(req, res) {
       const USER = getGithubUsername();
       if (!PAT) {
         console.log("PAT fail");
-        return res.status(403).json({ error: "PERSONAL_ACCESS_TOKEN secret not set" });
+        return res.status(403).json({ error: "GITHUB_PERSONAL_ACCESS_TOKEN secret not set" });
       }
       if (!USER) {
         console.log("USERNAME fail");

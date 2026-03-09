@@ -57,7 +57,7 @@ export default function PATPopup({ open, onClose }) {
             🚩 Add GitHub Personal Access Token
           </div>
           <p style={{ fontSize: 17, textAlign: "center", margin: 0, marginBottom: 6 }}>
-            Please add 2 secrets called <b>GITHUB_USERNAME</b> and <b>PERSONAL_ACCESS_TOKEN</b> and add your GitHub Username and the token (with the access) you get from:
+            Please add 2 secrets called <b>GITHUB_USERNAME</b> and <b>GITHUB_PERSONAL_ACCESS_TOKEN</b> and add your GitHub Username and the token (with the access) you get from:
           </p>
           <a
             href="https://github.com/settings/tokens/new?description=gitingest&scopes=repo"
