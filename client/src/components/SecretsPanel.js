@@ -92,7 +92,7 @@ export default function SecretsPanel() {
       </table>
       <div style={{ fontSize: "13px", marginTop: "14px", color: "#1a1a1a" }}>
         Values are never shown again after entry.<br/>
-        Use in parameters: <code style={{ background: "#eee", borderRadius: 4, padding: "2px 5px" }}>{'${{ secrets.YOUR_NAME }}'}</code>
+        Use in parameters: <code style={{ background: "#eee", borderRadius: 4, padding: "2px 5px" }}>{'parameters.SECRET_NAME'}</code>
       </div>
     </div>
   );

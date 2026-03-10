@@ -80,8 +80,8 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
   const [time, setTime] = useState("09:00");
   const [selectedDays, setSelectedDays] = useState(["mon", "tue", "wed", "thu", "fri"]);
   const [ntfyTopic, setNtfyTopic] = useState("");
-  const [teamsWebhook, setTeamsWebhook] = useState("");
-  const [notifyOn, setNotifyOn] = useState("failure");
+  const [teamsWebhookAll, setTeamsWebhookAll] = useState("");
+  const [teamsWebhookFail, setTeamsWebhookFail] = useState("");
   const [expandedLogs, setExpandedLogs] = useState({});
   const [logData, setLogData] = useState({});
   const [loading, setLoading] = useState(false);
@@ -97,8 +97,8 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
   const [importResult, setImportResult] = useState(null);
   const [editDays, setEditDays] = useState([]);
   const [editNtfyTopic, setEditNtfyTopic] = useState("");
-  const [editTeamsWebhook, setEditTeamsWebhook] = useState("");
-  const [editNotifyOn, setEditNotifyOn] = useState("failure");
+  const [editTeamsWebhookAll, setEditTeamsWebhookAll] = useState("");
+  const [editTeamsWebhookFail, setEditTeamsWebhookFail] = useState("");
 
   const fetchSchedules = useCallback(async () => {
     try {
@@ -141,8 +141,8 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
           time,
           days: selectedDays,
           ntfyTopic: ntfyTopic.trim(),
-          teamsWebhook: teamsWebhook.trim(),
-          notifyOn,
+          teamsWebhookAll: teamsWebhookAll.trim(),
+          teamsWebhookFail: teamsWebhookFail.trim(),
         }),
       });
       if (res.ok) {
@@ -191,8 +191,8 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
     setEditTime(s.time);
     setEditDays([...(s.days || [])]);
     setEditNtfyTopic(s.ntfyTopic || "");
-    setEditTeamsWebhook(s.teamsWebhook || "");
-    setEditNotifyOn(s.notifyOn || "failure");
+    setEditTeamsWebhookAll(s.teamsWebhookAll || "");
+    setEditTeamsWebhookFail(s.teamsWebhookFail || "");
   };
 
   const cancelEdit = () => {
@@ -216,8 +216,8 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
           time: editTime,
           days: editDays,
           ntfyTopic: editNtfyTopic.trim(),
-          teamsWebhook: editTeamsWebhook.trim(),
-          notifyOn: editNotifyOn,
+          teamsWebhookAll: editTeamsWebhookAll.trim(),
+          teamsWebhookFail: editTeamsWebhookFail.trim(),
         }),
       });
       if (res.ok) {
@@ -548,30 +548,28 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
                 />
               </label>
               <label style={{ fontSize: "13px" }}>
-                Teams webhook URL:
+                Teams webhook (all results):
                 <input
                   type="text"
-                  value={teamsWebhook}
-                  onChange={(e) => setTeamsWebhook(e.target.value)}
+                  value={teamsWebhookAll}
+                  onChange={(e) => setTeamsWebhookAll(e.target.value)}
                   placeholder="https://outlook.office.com/webhook/..."
                   style={{ marginLeft: "6px", padding: "5px 8px", borderRadius: "4px", border: "1px solid #ccc", width: "320px" }}
                 />
               </label>
               <label style={{ fontSize: "13px" }}>
-                Notify on:
-                <select
-                  value={notifyOn}
-                  onChange={(e) => setNotifyOn(e.target.value)}
-                  style={{ marginLeft: "6px", padding: "5px 8px", borderRadius: "4px", border: "1px solid #ccc" }}
-                >
-                  <option value="failure">Failure only</option>
-                  <option value="always">Always</option>
-                  <option value="never">Never</option>
-                </select>
+                Teams webhook (failures only):
+                <input
+                  type="text"
+                  value={teamsWebhookFail}
+                  onChange={(e) => setTeamsWebhookFail(e.target.value)}
+                  placeholder="https://outlook.office.com/webhook/..."
+                  style={{ marginLeft: "6px", padding: "5px 8px", borderRadius: "4px", border: "1px solid #ccc", width: "320px" }}
+                />
               </label>
             </div>
             <div style={{ marginTop: "6px", fontSize: "11px", color: "#666" }}>
-              ntfy: install the ntfy app and subscribe to your topic. Teams: create an Incoming Webhook connector in your channel.
+              ntfy: install the ntfy app and subscribe to your topic. Teams: create an Incoming Webhook connector in your channel. Failure webhook includes logs.
             </div>
           </div>
 
@@ -751,11 +749,12 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
                 </div>
               )}
 
-              {(s.ntfyTopic || s.teamsWebhook) && (
+              {(s.ntfyTopic || s.teamsWebhookAll || s.teamsWebhookFail) && (
                 <div style={{ marginTop: "4px", fontSize: "12px", color: "#555" }}>
-                  Notifications ({s.notifyOn || "failure"}):{" "}
+                  Notifications:{" "}
                   {s.ntfyTopic && <span style={{ marginRight: "10px" }}>ntfy: <strong>{s.ntfyTopic}</strong></span>}
-                  {s.teamsWebhook && <span>Teams webhook configured</span>}
+                  {s.teamsWebhookAll && <span style={{ marginRight: "10px" }}>Teams (all results) ✓</span>}
+                  {s.teamsWebhookFail && <span>Teams (failures + logs) ✓</span>}
                 </div>
               )}
 
@@ -860,26 +859,24 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
                         />
                       </label>
                       <label style={{ fontSize: "12px" }}>
-                        Teams webhook:
+                        Teams webhook (all results):
                         <input
                           type="text"
-                          value={editTeamsWebhook}
-                          onChange={(e) => setEditTeamsWebhook(e.target.value)}
+                          value={editTeamsWebhookAll}
+                          onChange={(e) => setEditTeamsWebhookAll(e.target.value)}
                           placeholder="https://outlook.office.com/webhook/..."
                           style={{ marginLeft: "4px", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ccc", width: "280px" }}
                         />
                       </label>
                       <label style={{ fontSize: "12px" }}>
-                        Notify on:
-                        <select
-                          value={editNotifyOn}
-                          onChange={(e) => setEditNotifyOn(e.target.value)}
-                          style={{ marginLeft: "4px", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ccc" }}
-                        >
-                          <option value="failure">Failure only</option>
-                          <option value="always">Always</option>
-                          <option value="never">Never</option>
-                        </select>
+                        Teams webhook (failures + logs):
+                        <input
+                          type="text"
+                          value={editTeamsWebhookFail}
+                          onChange={(e) => setEditTeamsWebhookFail(e.target.value)}
+                          placeholder="https://outlook.office.com/webhook/..."
+                          style={{ marginLeft: "4px", padding: "4px 8px", borderRadius: "4px", border: "1px solid #ccc", width: "280px" }}
+                        />
                       </label>
                     </div>
                   </div>
