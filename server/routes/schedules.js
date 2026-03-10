@@ -70,7 +70,7 @@ router.get("/:id/logs", (req, res) => {
 
 // Create a new schedule (bundles secrets + test code at creation time)
 router.post("/", (req, res) => {
-  const { name, sequencePayload, time, days, ntfyTopic, teamsWebhook, notifyOn } = req.body;
+  const { name, sequencePayload, time, days, ntfyTopic, teamsWebhookAll, teamsWebhookFail } = req.body;
 
   if (!name || !sequencePayload || !time || !days || !Array.isArray(days) || days.length === 0) {
     return res.status(400).json({
@@ -108,8 +108,8 @@ router.post("/", (req, res) => {
     time,
     days: days.map((d) => d.toLowerCase()),
     ntfyTopic: ntfyTopic || "",
-    teamsWebhook: teamsWebhook || "",
-    notifyOn: notifyOn || "failure",
+    teamsWebhookAll: teamsWebhookAll || "",
+    teamsWebhookFail: teamsWebhookFail || "",
     status: "active",
     createdAt: new Date().toISOString(),
     lastRun: null,
@@ -127,12 +127,12 @@ router.patch("/:id", (req, res) => {
   const schedule = scheduleStore.getById(req.params.id);
   if (!schedule) return res.status(404).json({ error: "Schedule not found" });
 
-  const { name, time, days, ntfyTopic, teamsWebhook, notifyOn } = req.body;
+  const { name, time, days, ntfyTopic, teamsWebhookAll, teamsWebhookFail } = req.body;
   const updates = {};
   if (name) updates.name = name;
   if (ntfyTopic !== undefined) updates.ntfyTopic = ntfyTopic;
-  if (teamsWebhook !== undefined) updates.teamsWebhook = teamsWebhook;
-  if (notifyOn !== undefined) updates.notifyOn = notifyOn;
+  if (teamsWebhookAll !== undefined) updates.teamsWebhookAll = teamsWebhookAll;
+  if (teamsWebhookFail !== undefined) updates.teamsWebhookFail = teamsWebhookFail;
   if (time) {
     if (!/^\d{2}:\d{2}$/.test(time)) {
       return res.status(400).json({ error: "time must be in HH:MM format" });
@@ -222,8 +222,8 @@ router.post("/:id/export", (req, res) => {
       time: schedule.time,
       days: schedule.days,
       ntfyTopic: schedule.ntfyTopic,
-      teamsWebhook: schedule.teamsWebhook,
-      notifyOn: schedule.notifyOn,
+      teamsWebhookAll: schedule.teamsWebhookAll,
+      teamsWebhookFail: schedule.teamsWebhookFail,
     },
     sequencePayload: schedule.sequencePayload,
     bundledSecrets: schedule.bundledSecrets || {},
@@ -295,8 +295,8 @@ router.post("/import", (req, res) => {
     time: bundle.schedule.time,
     days: bundle.schedule.days,
     ntfyTopic: bundle.schedule.ntfyTopic || "",
-    teamsWebhook: bundle.schedule.teamsWebhook || "",
-    notifyOn: bundle.schedule.notifyOn || "failure",
+    teamsWebhookAll: bundle.schedule.teamsWebhookAll || "",
+    teamsWebhookFail: bundle.schedule.teamsWebhookFail || "",
     status: "active",
     createdAt: new Date().toISOString(),
     lastRun: null,

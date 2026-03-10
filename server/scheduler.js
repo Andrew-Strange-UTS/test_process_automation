@@ -241,34 +241,70 @@ async function sendNotifications(schedule, code, logs) {
     }
   }
 
-  // Teams webhook
-  if (schedule.teamsWebhook) {
+  // Teams webhook — All messages (nice card, no logs)
+  if (schedule.teamsWebhookAll) {
     try {
       const emoji = code === 0 ? "✅" : "❌";
       const color = code === 0 ? "00cc00" : "cc0000";
       const payload = {
         "@type": "MessageCard",
+        "@context": "https://schema.org/extensions",
         themeColor: color,
         summary: `${emoji} ${schedule.name} - ${result}`,
         sections: [{
           activityTitle: `${emoji} Scheduled Sequence: ${schedule.name}`,
           facts: [
-            { name: "Result", value: result },
+            { name: "Result", value: `**${result}**` },
             { name: "Time", value: time },
             { name: "Steps", value: stepNames },
-            { name: "Logs", value: logText || "(no logs)" },
           ],
           markdown: true,
         }],
       };
-      const res = await fetch(schedule.teamsWebhook, {
+      const res = await fetch(schedule.teamsWebhookAll, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      console.log(`[notify] Teams webhook sent (HTTP ${res.status})`);
+      console.log(`[notify] Teams (all) webhook sent (HTTP ${res.status})`);
     } catch (err) {
-      console.error(`[notify] Teams webhook failed:`, err.message);
+      console.error(`[notify] Teams (all) webhook failed:`, err.message);
+    }
+  }
+
+  // Teams webhook — Failures only (includes logs)
+  if (schedule.teamsWebhookFail && code !== 0) {
+    try {
+      const logsHtml = (logText || "(no logs)").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+      const payload = {
+        "@type": "MessageCard",
+        "@context": "https://schema.org/extensions",
+        themeColor: "cc0000",
+        summary: `❌ ${schedule.name} - FAILED`,
+        sections: [
+          {
+            activityTitle: `❌ Scheduled Sequence: ${schedule.name}`,
+            facts: [
+              { name: "Result", value: "**FAILED**" },
+              { name: "Time", value: time },
+              { name: "Steps", value: stepNames },
+            ],
+            markdown: true,
+          },
+          {
+            title: "Logs",
+            text: `<pre>${logsHtml}</pre>`,
+          },
+        ],
+      };
+      const res = await fetch(schedule.teamsWebhookFail, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      console.log(`[notify] Teams (fail) webhook sent (HTTP ${res.status})`);
+    } catch (err) {
+      console.error(`[notify] Teams (fail) webhook failed:`, err.message);
     }
   }
 }
@@ -300,10 +336,8 @@ function executeSchedule(scheduleId) {
       });
       console.log(`[scheduler] Schedule ${schedule.name} finished with code ${code}`);
 
-      // Send notifications on failure (or always if configured)
-      if (schedule.notifyOn === "always" || (schedule.notifyOn !== "never" && code !== 0)) {
-        sendNotifications(schedule, code, runLogs[scheduleId]);
-      }
+      // Send notifications
+      sendNotifications(schedule, code, runLogs[scheduleId]);
     }
   );
 
