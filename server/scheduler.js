@@ -215,16 +215,17 @@ main();
   return child;
 }
 
-async function sendNotifications(schedule, code) {
+async function sendNotifications(schedule, code, logs) {
   const result = code === 0 ? "PASSED" : "FAILED";
   const time = new Date().toLocaleString();
   const stepNames = schedule.sequencePayload?.sequence?.map((t) => t.name).join(", ") || "unknown";
+  const logText = (logs || "").trim();
 
   // ntfy
   if (schedule.ntfyTopic) {
     try {
       const title = `Scheduled sequence ${result}: ${schedule.name}`;
-      const body = `${schedule.name} finished at ${time}\nResult: ${result}\nSteps: ${stepNames}`;
+      const body = `${schedule.name} finished at ${time}\nResult: ${result}\nSteps: ${stepNames}\n\nLogs:\n${logText}`;
       const res = await fetch(`https://ntfy.sh/${schedule.ntfyTopic}`, {
         method: "POST",
         headers: {
@@ -255,6 +256,7 @@ async function sendNotifications(schedule, code) {
             { name: "Result", value: result },
             { name: "Time", value: time },
             { name: "Steps", value: stepNames },
+            { name: "Logs", value: logText || "(no logs)" },
           ],
           markdown: true,
         }],
@@ -300,7 +302,7 @@ function executeSchedule(scheduleId) {
 
       // Send notifications on failure (or always if configured)
       if (schedule.notifyOn === "always" || (schedule.notifyOn !== "never" && code !== 0)) {
-        sendNotifications(schedule, code);
+        sendNotifications(schedule, code, runLogs[scheduleId]);
       }
     }
   );

@@ -35,7 +35,7 @@ Encrypted secrets store (AES-256-GCM) accessible from the UI. Secrets are persis
   - `GITHUB_PERSONAL_ACCESS_TOKEN` — for cloning private repos
   - `GITHUB_USERNAME` — your GitHub username for private repos
 - Add any additional test-specific secrets as needed
-- Reference secrets in test parameters using `${{ secrets.YOUR_NAME }}`
+- Reference secrets in test parameters using `parameters.SECRET_NAME`
 - Values are encrypted at rest and never displayed after entry
 
 ### Private GitHub Repository Support
@@ -210,7 +210,7 @@ module.exports = async function (driver, parameters = {}, zephyrLog) {
 }
 ```
 
-Parameters defined here appear as input fields on the test card. Secret references like `${{ secrets.MY_TOKEN }}` are resolved at runtime.
+Parameters defined here appear as input fields on the test card. Secret references like `parameters.SECRET_NAME` are resolved at runtime.
 
 ### OKTA Login Tests
 
