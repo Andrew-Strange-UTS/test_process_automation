@@ -217,7 +217,8 @@ main();
 
 async function sendNotifications(schedule, code, logs) {
   const result = code === 0 ? "PASSED" : "FAILED";
-  const time = new Date().toLocaleString();
+  const now = new Date();
+  const time = `${String(now.getDate()).padStart(2, "0")}/${now.toLocaleString("en-US", { month: "short" })}/${now.getFullYear()}`;
   const stepNames = schedule.sequencePayload?.sequence?.map((t) => t.name).join(", ") || "unknown";
   const logText = (logs || "").trim();
 
