@@ -715,7 +715,7 @@ export default function SchedulePanel({ sequencePayload, stepNames }) {
                 <Countdown time={s.time} days={s.days} status={s.status} />
                 {s.lastRun && (
                   <span style={{ marginLeft: "16px" }}>
-                    Last run: {new Date(s.lastRun).toLocaleString()} -{" "}
+                    Last run: {(() => { const d = new Date(s.lastRun); return `${String(d.getDate()).padStart(2, "0")}/${d.toLocaleString("en-US", { month: "short" })}/${d.getFullYear()}`; })()} -{" "}
                     <span
                       style={{
                         fontWeight: "bold",
